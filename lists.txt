@@ -1,8 +1,8 @@
-Lista 1 | http://api.ottshow.net:80/get.php?username=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
-Lista 2 | http://samo-mojatv.myddns.me:82/get.php?username=Edin@Sahinovic.BiH&password=8z9gBSR3HQ79&type=m3u_plus
-Lista 3 | http://ah-mediasolution.xyz:25461/get.php?username=isat@nane&password=T2nDtR37guRP&type=m3u_plus&output=mpegts
-Lista 4 | http://abc.4k-iptv.com:80/get.php?username=roko33&password=roko33hgvZUz&type=m3u_plus&output=ts
-Lista 5 | http://burebaruta.xyz:12974/get.php?username=SpomenkoMilicaSimicM&password=UQ6wGiJuiQ&type=m3u_plus
+Lista 1 | http://kairtv.com/get.php?username=Jasminka.Susko&password=FD2z-ZDBen8T&type=m3u_plus&output=mpegts
+Lista 2 | http://bntvs.com:2052/get.php?username=KevinDurakovic&password=22tdN8fvqD&type=m3u_plus
+Lista 3 | http://zvjerka.com:2052/get.php?username=jamygrupavigor&password=5340900340&type=m3u_plus&output=ts
+Lista 4 |http://api.ottshow.net:80/get.php?username=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
+Lista 5 | http://next-tv.xyz:25461/get.php?username=0c43f947dfe6&password=BX6cd4v6xk4n&type=m3u_plus
 Lista 6 | http://centrotv.me:25461/get.php?username=jmasofnahgrua109x&password=tB3CA6QJl0&type=m3u_plus
 Lista 7 | http://vewora.com:8080/get.php?username=AldinP@@wp823405&password=JH95LvuCDrMP&type=m3u_plus&output=mpegts
 Lista 8 | http://terapija.club:80/get.php?username=Mladen@Bozikovic&password=Mladen2023&type=m3u&output=ts
