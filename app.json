@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "SignalTV",
+    "slug": "signaltv",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.signaltv.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [],
+      "minSdkVersion": 23
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-video"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "56a77ba1-3dfd-4361-83a0-179e1656cadc"
+      }
+    },
+    "experiments": {
+      "typedRoutes": false,
+      "tsconfigPaths": false,
+      "runtimeEnabled": false,
+      "newArchEnabled": false
+    }
+  }
+}
