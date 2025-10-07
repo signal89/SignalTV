@@ -47,6 +47,22 @@ def parse_m3u(m3u_text):
     return channels
 
 
+# 🔹 API endpoint koji vraća sve liste iz lists.txt
+@app.route("/api/lists", methods=["GET"])
+def get_lists():
+    try:
+        lists = []
+        with open(LISTS_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if "|" in line:
+                    name, url = line.strip().split("|", 1)
+                    lists.append({"name": name.strip(), "url": url.strip()})
+        return jsonify(lists), 200
+    except Exception as e:
+        app.logger.error(f"Failed to read lists.txt: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/channels")
 def api_channels():
     lists = load_lists()
@@ -120,4 +136,5 @@ def static_files(filename):
 
 
 if __name__ == "__main__":
+    print("✅ SignalTV server start. Open http://127.0.0.1:5000/api/lists")
     app.run(debug=True, host="0.0.0.0", port=5000)
