@@ -1,4 +1,4 @@
-Lista 1 | http://kairtv.com/get.php?username=Jasminka.Susko&password=FD2z-ZDBen8T&type=m3u_plus&output=mpegts
+Lista 1 | http://tv.motv.club/playlist/MarkoCoric1/CoricMarko1/m3u_plus
 Lista 2 | http://bntvs.com:2052/get.php?username=KevinDurakovic&password=22tdN8fvqD&type=m3u_plus
 Lista 3 | http://zvjerka.com:2052/get.php?username=jamygrupavigor&password=5340900340&type=m3u_plus&output=ts
 Lista 4 |http://api.ottshow.net:80/get.php?username=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
