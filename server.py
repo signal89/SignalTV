@@ -36,7 +36,6 @@ def parse_m3u(m3u_text):
     name = None
     for line in lines:
         if line.startswith("#EXTINF"):
-            # Izvuci ime kanala
             m = re.search(r",(.+)$", line)
             if m:
                 name = m.group(1).strip()
@@ -47,31 +46,14 @@ def parse_m3u(m3u_text):
     return channels
 
 
-# 🔹 API endpoint koji vraća sve liste iz lists.txt
-@app.route("/api/lists", methods=["GET"])
-def get_lists():
-    try:
-        lists = []
-        with open(LISTS_FILE, "r", encoding="utf-8") as f:
-            for line in f:
-                if "|" in line:
-                    name, url = line.strip().split("|", 1)
-                    lists.append({"name": name.strip(), "url": url.strip()})
-        return jsonify(lists), 200
-    except Exception as e:
-        app.logger.error(f"Failed to read lists.txt: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route("/api/channels")
 def api_channels():
     lists = load_lists()
     wanted_channels = load_channels()
-
     working_channels = []
     stream_map = {}
 
-    # 🔹 Nađi prvu listu koja radi
+    # ✅ Nađi prvu funkcionalnu listu
     for l in lists:
         try:
             r = requests.get(l["url"], timeout=10)
@@ -81,14 +63,14 @@ def api_channels():
         except Exception:
             continue
 
-    # 🔹 Ako nema radne liste
     if not stream_map:
         return jsonify({"error": "Nijedna lista ne radi"}), 500
 
-    # 🔹 Normalizuj nazive iz M3U liste
+    # ✅ Normalizuj nazive iz M3U
     normalized_streams = {
         k.lower()
          .replace("hd", "")
+         .replace("premium", "premium ")
          .replace("  ", " ")
          .replace("(", "")
          .replace(")", "")
@@ -98,12 +80,28 @@ def api_channels():
         for k, v in stream_map.items()
     }
 
-    # 🔹 Upari željene kanale po sličnosti (fuzzy match)
+    # ✅ Fina logika za grupisanje
+    def get_group(name):
+        n = name.lower()
+        if "arena" in n:
+            if "premium" in n:
+                return "Arena Premium"
+            return "Arena Sport"
+        if "sport klub" in n or "sportklub" in n or n.startswith("sk "):
+            return "Sport Klub"
+        if any(tag in n for tag in ["film", "cinemax", "hbo"]):
+            return "Filmski"
+        if any(tag in n for tag in ["hrt", "rtl", "nova", "doma", "prva", "pink", "happy"]):
+            return "Regionalni"
+        return "Ostalo"
+
+    # ✅ Tačno uparivanje po imenu (prije fuzzy match)
     for ch in wanted_channels:
         name = ch["name"]
         norm_name = (
             name.lower()
             .replace("hd", "")
+            .replace("premium", "premium ")
             .replace("  ", " ")
             .replace("(", "")
             .replace(")", "")
@@ -112,15 +110,18 @@ def api_channels():
             .strip()
         )
 
-        # Pronađi najsličnije ime (ako postoji)
-        match = get_close_matches(norm_name, normalized_streams.keys(), n=1, cutoff=0.6)
-        if match:
-            matched_name = match[0]
+        url = normalized_streams.get(norm_name)
+        if not url:
+            match = get_close_matches(norm_name, normalized_streams.keys(), n=1, cutoff=0.75)
+            if match:
+                url = normalized_streams[match[0]]
+
+        if url:
             working_channels.append({
                 "name": name,
-                "url": normalized_streams[matched_name],
-                "logo": ch.get("logo", "/static/default.png"),
-                "group": ch.get("group", "Ostalo")
+                "url": url,
+                "logo": ch.get("logo", f"/static/default.png"),
+                "group": get_group(name)
             })
 
     if not working_channels:
@@ -129,12 +130,10 @@ def api_channels():
     return jsonify(working_channels)
 
 
-# 🔹 Serviraj slike iz static foldera
 @app.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory(STATIC_DIR, filename)
 
 
 if __name__ == "__main__":
-    print("✅ SignalTV server start. Open http://127.0.0.1:5000/api/lists")
     app.run(debug=True, host="0.0.0.0", port=5000)
