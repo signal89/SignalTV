@@ -7,17 +7,26 @@ import {
   Image,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 
 export default function ChannelList({ navigation }) {
   const [kanali, setKanali] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ automatsko prepoznavanje TV-a ili mobitela
+  const isTV = Platform.isTV || Platform.OS === "android" && !Platform.isPad && !Platform.isTVDevice;
+
   useEffect(() => {
     fetch("https://signaltv.onrender.com/api/channels")
       .then((res) => res.json())
       .then((data) => {
-        setKanali(Array.isArray(data) ? data : []);
+        if (Array.isArray(data)) {
+          setKanali(data);
+        } else {
+          console.error("Neispravan odgovor API-ja:", data);
+          setKanali([]);
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -29,26 +38,26 @@ export default function ChannelList({ navigation }) {
   const getLogo = (name = "") => {
     const lower = name.toLowerCase();
     if (lower.includes("arena")) return require("../static/arenasport.png");
-    if (lower.includes("sportklub") || lower.includes("sk "))
+    if (lower.includes("sport klub") || lower.includes("sportklub") || lower.includes("sk "))
       return require("../static/sportklub.png");
     return require("../static/default.png");
   };
 
   const renderItem = ({ item }) => {
-    const naziv = item?.naziv || "Nepoznat kanal";
+    const name = item?.name || "Nepoznat kanal";
     const url = item?.url || null;
 
     return (
       <TouchableOpacity
-        style={styles.item}
+        style={[styles.item, isTV && styles.itemTV]}
         onPress={() =>
           url
-            ? navigation.navigate("Player", { kanal: { naziv, url } })
+            ? navigation.navigate("Player", { kanal: { name, url } })
             : alert("Greška: URL nije pronađen")
         }
       >
-        <Image source={getLogo(naziv)} style={styles.logo} />
-        <Text style={styles.name}>{naziv}</Text>
+        <Image source={getLogo(name)} style={styles.logo} />
+        <Text style={styles.name}>{name}</Text>
       </TouchableOpacity>
     );
   };
@@ -69,6 +78,9 @@ export default function ChannelList({ navigation }) {
         data={kanali}
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderItem}
+        numColumns={isTV ? 1 : 2}
+        key={isTV ? "tv" : "phone"}
+        contentContainerStyle={styles.grid}
       />
     </View>
   );
@@ -83,17 +95,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 20,
   },
+  grid: {
+    paddingHorizontal: 10,
+  },
   item: {
-    flexDirection: "row",
+    flex: 1,
     alignItems: "center",
     backgroundColor: "#1e1e1e",
-    marginVertical: 6,
-    marginHorizontal: 10,
+    margin: 6,
     borderRadius: 10,
     padding: 10,
   },
-  logo: { width: 50, height: 50, marginRight: 10, borderRadius: 8 },
-  name: { color: "white", fontSize: 16 },
+  itemTV: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 5,
+    borderRadius: 10,
+  },
+  name: {
+    color: "white",
+    fontSize: 14,
+    textAlign: "center",
+  },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#000",
