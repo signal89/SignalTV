@@ -8,21 +8,37 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  SectionList,
 } from "react-native";
 
 export default function ChannelList({ navigation }) {
   const [kanali, setKanali] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ automatsko prepoznavanje TV-a ili mobitela
-  const isTV = Platform.isTV || Platform.OS === "android" && !Platform.isPad && !Platform.isTVDevice;
+  const isTV =
+    Platform.isTV ||
+    (Platform.OS === "android" && !Platform.isPad && !Platform.isTVDevice);
 
   useEffect(() => {
     fetch("https://signaltv.onrender.com/api/channels")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          setKanali(data);
+          // Grupisanje po polju "group"
+          const grouped = data.reduce((acc, kanal) => {
+            const group = kanal.group || "Ostalo";
+            if (!acc[group]) acc[group] = [];
+            acc[group].push(kanal);
+            return acc;
+          }, {});
+
+          // Pretvori u SectionList format
+          const sections = Object.keys(grouped).map((group) => ({
+            title: group,
+            data: grouped[group],
+          }));
+
+          setKanali(sections);
         } else {
           console.error("Neispravan odgovor API-ja:", data);
           setKanali([]);
@@ -52,7 +68,7 @@ export default function ChannelList({ navigation }) {
         style={[styles.item, isTV && styles.itemTV]}
         onPress={() =>
           url
-            ? navigation.navigate("Player", { kanal: { name, url } })
+            ? navigation.navigate("Player", { kanal: { name, url }, lista: flattenChannels(kanali) })
             : alert("Greška: URL nije pronađen")
         }
       >
@@ -61,6 +77,9 @@ export default function ChannelList({ navigation }) {
       </TouchableOpacity>
     );
   };
+
+  const flattenChannels = (sections) =>
+    sections.flatMap((section) => section.data);
 
   if (loading) {
     return (
@@ -74,13 +93,15 @@ export default function ChannelList({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>📺 Lista kanala</Text>
-      <FlatList
-        data={kanali}
+      <SectionList
+        sections={kanali}
         keyExtractor={(item, index) => index.toString()}
         renderItem={renderItem}
-        numColumns={isTV ? 1 : 2}
-        key={isTV ? "tv" : "phone"}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.sectionHeader}>{title}</Text>
+        )}
         contentContainerStyle={styles.grid}
+        numColumns={isTV ? 1 : 2}
       />
     </View>
   );
@@ -95,8 +116,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 20,
   },
+  sectionHeader: {
+    color: "#00ffcc",
+    fontSize: 18,
+    fontWeight: "bold",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: "#111",
+    borderRadius: 5,
+    marginTop: 10,
+  },
   grid: {
     paddingHorizontal: 10,
+    paddingBottom: 50,
   },
   item: {
     flex: 1,

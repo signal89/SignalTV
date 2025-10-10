@@ -1,11 +1,11 @@
-Lista 1 | http://tv.motv.club/playlist/MarkoCoric1/CoricMarko1/m3u_plus
+Lista 1 |http://olix.cc:8000/get.php?username=Slavisa89&password=TwxEk3RGvf&type=m3u_plus
 Lista 2 | http://bntvs.com:2052/get.php?username=KevinDurakovic&password=22tdN8fvqD&type=m3u_plus
 Lista 3 | http://zvjerka.com:2052/get.php?username=jamygrupavigor&password=5340900340&type=m3u_plus&output=ts
 Lista 4 |http://api.ottshow.net:80/get.php?username=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
-Lista 5 | http://next-tv.xyz:25461/get.php?username=0c43f947dfe6&password=BX6cd4v6xk4n&type=m3u_plus
+Lista 5 |http://stb.izipizi1.info:80/get.php?username=dg9YYJ&password=3gtXD1&type=m3u_plus
 Lista 6 | http://centrotv.me:25461/get.php?username=jmasofnahgrua109x&password=tB3CA6QJl0&type=m3u_plus
-Lista 7 | http://vewora.com:8080/get.php?username=AldinP@@wp823405&password=JH95LvuCDrMP&type=m3u_plus&output=mpegts
-Lista 8 | http://terapija.club:80/get.php?username=Mladen@Bozikovic&password=Mladen2023&type=m3u&output=ts
+Lista 7 | http://tv.motv.club/playlist/MarkoCoric1/CoricMarko1/m3u_plus
+Lista 8 | http://grogi.online:80/get.php?username=Savonedic1050&password=Nedicsavo1050&type=m3u_plus
 Lista 9 | http://smart.mediaking.fi:8080/get.php?username=Ljatifiafiz@gmail.com&password=9Y@zDsEcXdJSxi6&type=m3u_plus&output=mpegts
 Lista 10 | http://goldmedia.tvweb.org//get.php?username=MarinkoTurki&password=eJScTkesfC&type=m3u_plus&output=ts
 Lista 11 | http://viptvs.cc:8080/get.php?username=StevicaRusmic&password=h7Tkfxv6a2JpmQKqV9gHDvgk8pg9gAtJ&type=m3u_plus&output=mpegts
