@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, send_from_directory
-import requests, json, re, os, time
-from difflib import SequenceMatcher
+import requests, json, re, os
+from difflib import get_close_matches
 
 app = Flask(__name__)
 
@@ -10,7 +10,6 @@ STATIC_DIR = "static"
 
 
 def load_lists():
-    """Učitava sve M3U linkove iz lists.txt"""
     lists = []
     with open(LISTS_FILE, "r", encoding="utf-8") as f:
         for i, line in enumerate(f, start=1):
@@ -26,14 +25,13 @@ def load_lists():
 
 
 def load_channels():
-    """Učitava JSON kanal listu (ime + logo + grupa)"""
     with open(CHANNELS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def parse_m3u(m3u_text):
-    """Parsira M3U listu u ime + URL"""
-    channels = []
+    """Parsiraj M3U fajl i vrati {ime: url}"""
+    channels = {}
     lines = m3u_text.splitlines()
     name = None
     for line in lines:
@@ -43,86 +41,93 @@ def parse_m3u(m3u_text):
                 name = m.group(1).strip()
         elif line.startswith("http"):
             if name:
-                channels.append({"name": name, "url": line.strip()})
+                channels[name] = line.strip()
                 name = None
     return channels
-
-
-def normalize(text):
-    """Jednostavno čišćenje naziva kanala"""
-    return (
-        text.lower()
-        .replace("hd", "")
-        .replace("plus", "")
-        .replace("premium", "")
-        .replace("bih", "")
-        .replace("hr", "")
-        .replace("sr", "")
-        .replace("(", "")
-        .replace(")", "")
-        .replace(".", "")
-        .replace("-", "")
-        .strip()
-    )
-
-
-def find_best_match(name, stream_list):
-    """Pronađi najbolji link iz M3U liste po sličnosti"""
-    best_match = None
-    best_score = 0
-    for s in stream_list:
-        score = SequenceMatcher(None, normalize(name), normalize(s["name"])).ratio()
-        if score > best_score:
-            best_score = score
-            best_match = s
-    if best_score >= 0.75:
-        return best_match
-    return None
 
 
 @app.route("/api/channels")
 def api_channels():
     lists = load_lists()
     wanted_channels = load_channels()
-    stream_list = []
+    working_channels = []
+    stream_map = {}
 
-    # 🔹 Pronađi prvu aktivnu M3U listu
+    # ✅ Nađi prvu funkcionalnu listu
     for l in lists:
         try:
-            print(f"➡️ Testiram {l['name']} ...")
             r = requests.get(l["url"], timeout=10)
             if r.status_code == 200 and "#EXTM3U" in r.text:
-                stream_list = parse_m3u(r.text)
-                print(f"✅ Koristim {l['name']}")
+                stream_map = parse_m3u(r.text)
                 break
-        except Exception as e:
-            print(f"❌ {l['name']} greška: {e}")
+        except Exception:
             continue
 
-    if not stream_list:
-        return jsonify({"error": "Nijedna M3U lista nije dostupna"}), 500
+    if not stream_map:
+        return jsonify({"error": "Nijedna lista ne radi"}), 500
 
-    # 🔹 Poveži kanale
-    rezultat = []
+    # ✅ Normalizuj nazive iz M3U
+    normalized_streams = {
+        k.lower()
+         .replace("hd", "")
+         .replace("premium", "premium ")
+         .replace("  ", " ")
+         .replace("(", "")
+         .replace(")", "")
+         .replace(".", "")
+         .replace("-", "")
+         .strip(): v
+        for k, v in stream_map.items()
+    }
+
+    # ✅ Fina logika za grupisanje
+    def get_group(name):
+        n = name.lower()
+        if "arena" in n:
+            if "premium" in n:
+                return "Arena Premium"
+            return "Arena Sport"
+        if "sport klub" in n or "sportklub" in n or n.startswith("sk "):
+            return "Sport Klub"
+        if any(tag in n for tag in ["film", "cinemax", "hbo"]):
+            return "Filmski"
+        if any(tag in n for tag in ["hrt", "rtl", "nova", "doma", "prva", "pink", "happy"]):
+            return "Regionalni"
+        return "Ostalo"
+
+    # ✅ Tačno uparivanje po imenu (prije fuzzy match)
     for ch in wanted_channels:
         name = ch["name"]
-        match = find_best_match(name, stream_list)
-        if match:
-            rezultat.append({
+        norm_name = (
+            name.lower()
+            .replace("hd", "")
+            .replace("premium", "premium ")
+            .replace("  ", " ")
+            .replace("(", "")
+            .replace(")", "")
+            .replace(".", "")
+            .replace("-", "")
+            .strip()
+        )
+
+        url = normalized_streams.get(norm_name)
+        if not url:
+            match = get_close_matches(norm_name, normalized_streams.keys(), n=1, cutoff=0.75)
+            if match:
+                url = normalized_streams[match[0]]
+
+        if url:
+            working_channels.append({
                 "name": name,
-                "url": match["url"],
-                "logo": ch.get("logo", "/static/default.png"),
-                "group": ch.get("group", "Ostalo")
-            })
-        else:
-            rezultat.append({
-                "name": name,
-                "url": "Nije dostupno",
-                "logo": ch.get("logo", "/static/default.png"),
-                "group": ch.get("group", "Ostalo")
+                "url": url,
+                "logo": ch.get("logo", f"/static/default.png"),
+                "group": get_group(name)
             })
 
-    return jsonify(rezultat)
+    if not working_channels:
+        return jsonify({"error": "Nema pronađenih kanala"}), 404
+
+    return jsonify(working_channels)
 
 
 @app.route("/static/<path:filename>")

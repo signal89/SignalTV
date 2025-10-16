@@ -8,23 +8,37 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
-  Alert,
+  SectionList,
 } from "react-native";
 
 export default function ChannelList({ navigation }) {
   const [kanali, setKanali] = useState([]);
-  const [grupe, setGrupe] = useState([]);
-  const [odabranaGrupa, setOdabranaGrupa] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const isTV =
+    Platform.isTV ||
+    (Platform.OS === "android" && !Platform.isPad && !Platform.isTVDevice);
 
   useEffect(() => {
     fetch("https://signaltv.onrender.com/api/channels")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          setKanali(data);
-          const groups = [...new Set(data.map((k) => k.group || "Ostalo"))];
-          setGrupe(groups);
+          // Grupisanje po polju "group"
+          const grouped = data.reduce((acc, kanal) => {
+            const group = kanal.group || "Ostalo";
+            if (!acc[group]) acc[group] = [];
+            acc[group].push(kanal);
+            return acc;
+          }, {});
+
+          // Pretvori u SectionList format
+          const sections = Object.keys(grouped).map((group) => ({
+            title: group,
+            data: grouped[group],
+          }));
+
+          setKanali(sections);
         } else {
           console.error("Neispravan odgovor API-ja:", data);
           setKanali([]);
@@ -42,72 +56,53 @@ export default function ChannelList({ navigation }) {
     if (lower.includes("arena")) return require("../static/arenasport.png");
     if (lower.includes("sport klub") || lower.includes("sportklub") || lower.includes("sk "))
       return require("../static/sportklub.png");
-    if (lower.includes("hbo")) return require("../static/hbo.png");
     return require("../static/default.png");
   };
 
-  const prikazGrupe = () => (
-    <FlatList
-      data={grupe}
-      keyExtractor={(item, index) => index.toString()}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.groupBtn}
-          onPress={() => setOdabranaGrupa(item)}
-        >
-          <Text style={styles.groupText}>{item}</Text>
-        </TouchableOpacity>
-      )}
-    />
-  );
+  const renderItem = ({ item }) => {
+    const name = item?.name || "Nepoznat kanal";
+    const url = item?.url || null;
 
-  const prikazKanala = () => {
-    const kanaliGrupe = kanali.filter((k) => k.group === odabranaGrupa);
     return (
-      <View style={{ flex: 1 }}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => setOdabranaGrupa(null)}
-        >
-          <Text style={{ color: "#00ffcc", fontSize: 16 }}>⬅ Nazad na grupe</Text>
-        </TouchableOpacity>
-
-        <FlatList
-          data={kanaliGrupe}
-          numColumns={2}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.item}
-              onPress={() =>
-                item.url && item.url !== "Nije dostupno"
-                  ? navigation.navigate("Player", { kanal: item, sviKanali: kanaliGrupe })
-                  : Alert.alert("Kanal nije dostupan")
-              }
-            >
-              <Image source={getLogo(item.name)} style={styles.logo} />
-              <Text style={styles.name}>{item.name}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+      <TouchableOpacity
+        style={[styles.item, isTV && styles.itemTV]}
+        onPress={() =>
+          url
+            ? navigation.navigate("Player", { kanal: { name, url }, lista: flattenChannels(kanali) })
+            : alert("Greška: URL nije pronađen")
+        }
+      >
+        <Image source={getLogo(name)} style={styles.logo} />
+        <Text style={styles.name}>{name}</Text>
+      </TouchableOpacity>
     );
   };
 
-  if (loading)
+  const flattenChannels = (sections) =>
+    sections.flatMap((section) => section.data);
+
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#00ffcc" />
         <Text style={{ color: "white", marginTop: 10 }}>Učitavanje kanala...</Text>
       </View>
     );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        {odabranaGrupa ? odabranaGrupa : "📺 Kategorije kanala"}
-      </Text>
-      {odabranaGrupa ? prikazKanala() : prikazGrupe()}
+      <Text style={styles.title}>📺 Lista kanala</Text>
+      <SectionList
+        sections={kanali}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={renderItem}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.sectionHeader}>{title}</Text>
+        )}
+        contentContainerStyle={styles.grid}
+        numColumns={isTV ? 1 : 2}
+      />
     </View>
   );
 }
@@ -121,14 +116,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 20,
   },
-  groupBtn: {
-    backgroundColor: "#1e1e1e",
-    margin: 10,
-    padding: 20,
-    borderRadius: 10,
-    alignItems: "center",
+  sectionHeader: {
+    color: "#00ffcc",
+    fontSize: 18,
+    fontWeight: "bold",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: "#111",
+    borderRadius: 5,
+    marginTop: 10,
   },
-  groupText: { color: "white", fontSize: 18 },
+  grid: {
+    paddingHorizontal: 10,
+    paddingBottom: 50,
+  },
   item: {
     flex: 1,
     alignItems: "center",
@@ -137,13 +138,25 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
-  logo: { width: 80, height: 80, marginBottom: 5, borderRadius: 10 },
-  name: { color: "white", fontSize: 14, textAlign: "center" },
+  itemTV: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 5,
+    borderRadius: 10,
+  },
+  name: {
+    color: "white",
+    fontSize: 14,
+    textAlign: "center",
+  },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
   },
-  backBtn: { alignSelf: "flex-start", margin: 10 },
 });

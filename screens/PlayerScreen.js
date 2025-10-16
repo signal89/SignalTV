@@ -1,81 +1,71 @@
-import React, { useState, useRef, useEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Dimensions } from "react-native";
-import { Video } from "expo-av";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, BackHandler, TouchableOpacity, FlatList, Dimensions } from "react-native";
+import { Video } from "expo-video";
 
 export default function PlayerScreen({ route, navigation }) {
-  const { kanal, sviKanali } = route.params;
-  const [trenutniKanal, setTrenutniKanal] = useState(kanal);
+  const { kanal, lista } = route.params;
+  const [currentIndex, setCurrentIndex] = useState(
+    lista.findIndex((k) => k.name === kanal.name)
+  );
   const [showList, setShowList] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const playerRef = useRef(null);
-
-  const index = sviKanali.findIndex((k) => k.name === trenutniKanal.name);
-
-  const sljedeci = () => {
-    if (index < sviKanali.length - 1) setTrenutniKanal(sviKanali[index + 1]);
-  };
-
-  const prethodni = () => {
-    if (index > 0) setTrenutniKanal(sviKanali[index - 1]);
-  };
-
-  const toggleFullscreen = async () => {
-    if (isFullscreen) {
-      await playerRef.current.dismissFullscreenPlayer();
-      setIsFullscreen(false);
-    } else {
-      await playerRef.current.presentFullscreenPlayer();
-      setIsFullscreen(true);
-    }
-  };
 
   useEffect(() => {
-    navigation.setOptions({ title: trenutniKanal.name });
-  }, [trenutniKanal]);
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (showList) {
+        setShowList(false);
+        return true;
+      }
+      navigation.goBack();
+      return true;
+    });
+    return () => backHandler.remove();
+  }, [showList]);
+
+  const currentChannel = lista[currentIndex] || kanal;
+
+  const nextChannel = () => {
+    const next = (currentIndex + 1) % lista.length;
+    setCurrentIndex(next);
+  };
+
+  const prevChannel = () => {
+    const prev = (currentIndex - 1 + lista.length) % lista.length;
+    setCurrentIndex(prev);
+  };
 
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>{currentChannel.name}</Text>
       <Video
-        ref={playerRef}
-        source={{ uri: trenutniKanal.url }}
-        style={isFullscreen ? styles.fullscreenVideo : styles.video}
+        key={currentChannel.url}
+        source={{ uri: currentChannel.url }}
+        style={styles.video}
         useNativeControls
-        resizeMode="contain"
+        resizeMode="cover"
         shouldPlay
-        onError={(e) => console.log("Greška u streamu:", e)}
       />
-
-      {!isFullscreen && (
-        <View style={styles.controls}>
-          <TouchableOpacity onPress={prethodni} style={styles.controlButton}>
-            <Ionicons name="play-skip-back" size={32} color="#00ffcc" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={toggleFullscreen} style={styles.controlButton}>
-            <Ionicons name="resize" size={32} color="#00ffcc" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={sljedeci} style={styles.controlButton}>
-            <Ionicons name="play-skip-forward" size={32} color="#00ffcc" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowList(!showList)} style={styles.controlButton}>
-            <Ionicons name="list" size={32} color="#00ffcc" />
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.controls}>
+        <TouchableOpacity onPress={prevChannel} style={styles.button}>
+          <Text style={styles.btnText}>⏮️ PREV</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowList(!showList)} style={styles.button}>
+          <Text style={styles.btnText}>📺 KANALI</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={nextChannel} style={styles.button}>
+          <Text style={styles.btnText}>⏭️ NEXT</Text>
+        </TouchableOpacity>
+      </View>
 
       {showList && (
-        <View style={styles.listContainer}>
+        <View style={styles.listOverlay}>
           <FlatList
-            data={sviKanali}
+            data={lista}
             keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <TouchableOpacity
-                style={[
-                  styles.listItem,
-                  item.name === trenutniKanal.name && styles.activeItem,
-                ]}
+                style={styles.listItem}
                 onPress={() => {
-                  setTrenutniKanal(item);
+                  setCurrentIndex(index);
                   setShowList(false);
                 }}
               >
@@ -89,26 +79,52 @@ export default function PlayerScreen({ route, navigation }) {
   );
 }
 
-const { height } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "black" },
-  video: { width: "100%", height: height * 0.35, backgroundColor: "black" },
-  fullscreenVideo: { width: "100%", height: "100%" },
+  title: {
+    color: "white",
+    fontSize: 18,
+    textAlign: "center",
+    marginVertical: 10,
+  },
+  video: {
+    width: width,
+    height: height * 0.6,
+    alignSelf: "center",
+  },
   controls: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingVertical: 15,
+    marginTop: 10,
+  },
+  button: {
+    backgroundColor: "#00aaff",
+    padding: 10,
+    borderRadius: 10,
+  },
+  btnText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  listOverlay: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    height: "50%",
     backgroundColor: "#111",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 10,
   },
-  controlButton: { padding: 5 },
-  listContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-    borderTopWidth: 1,
-    borderTopColor: "#333",
+  listItem: {
+    padding: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#333",
   },
-  listItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: "#222" },
-  activeItem: { backgroundColor: "#00ffcc33" },
-  listText: { color: "white", fontSize: 15 },
+  listText: {
+    color: "white",
+    fontSize: 16,
+  },
 });
