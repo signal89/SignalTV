@@ -147,5 +147,5 @@
   {"name": "Nickelodeon SR", "logo": "/static/nick.png", "group": "Djeca"},
   {"name": "Nickelodeon HR", "logo": "/static/nick.png", "group": "Djeca"},
   {"name": "Baby TV", "logo": "/static/babytv.png", "group": "Djeca"},
-  {"name": "Mini TV", "logo": "/static/minitv.png", "group": "Djeca"},
+  {"name": "Mini TV", "logo": "/static/minitv.png", "group": "Djeca"}
 ]
