@@ -8,6 +8,7 @@ LISTS_FILE = "lists.txt"
 CHANNELS_FILE = "channels.json"
 STATIC_DIR = "static"
 
+
 def load_lists():
     lists = []
     if not os.path.exists(LISTS_FILE):
@@ -24,11 +25,17 @@ def load_lists():
             lists.append({"id": i, "name": name.strip(), "url": url.strip()})
     return lists
 
+
 def load_channels():
     if not os.path.exists(CHANNELS_FILE):
         return []
-    with open(CHANNELS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(CHANNELS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"❌ Greška pri čitanju {CHANNELS_FILE}: {e}")
+        return []
+
 
 def parse_m3u(m3u_text):
     """Vrati dict: naziv_kanala -> URL"""
@@ -45,6 +52,7 @@ def parse_m3u(m3u_text):
                 name = None
     return channels
 
+
 @app.route("/api/channels")
 def api_channels():
     lists = load_lists()
@@ -52,20 +60,23 @@ def api_channels():
     working_channels = []
     stream_map = {}
 
-    # pronađi prvu funkcionalnu listu
+    # 🔁 pokušaj svaku listu (timeout=5s)
     for l in lists:
         try:
-            r = requests.get(l["url"], timeout=10)
+            print(f"🔍 Provjeravam listu: {l['url']}")
+            r = requests.get(l["url"], timeout=5)
             if r.status_code == 200 and "#EXTM3U" in r.text:
                 stream_map = parse_m3u(r.text)
+                print(f"✅ Lista radi: {l['name']}")
                 break
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Greška na listi {l['url']}: {e}")
             continue
 
     if not stream_map:
-        return jsonify({"error": "Nijedna lista ne radi"}), 500
+        print("⚠️ Nema funkcionalnih lista, vraćam prazan niz.")
+        return jsonify([])
 
-    # normalizacija ključeva
     def normalize(text):
         return (
             text.lower()
@@ -74,6 +85,7 @@ def api_channels():
             .replace(".", "")
             .replace("_", "")
             .replace("hd", "")
+            .replace("premium", "premium")
             .strip()
         )
 
@@ -85,7 +97,6 @@ def api_channels():
 
         url = normalized_streams.get(norm_name)
 
-        # ako nema tačno ime — fuzzy match samo ako je jako slično
         if not url:
             match = get_close_matches(norm_name, normalized_streams.keys(), n=1, cutoff=0.9)
             if match:
@@ -96,13 +107,16 @@ def api_channels():
             "url": url if url else None,
             "logo": ch.get("logo", "/static/default.png"),
             "group": ch.get("group", "Ostalo"),
+            "status": "ok" if url else "nedostupan"
         })
 
     return jsonify(working_channels)
 
+
 @app.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory(STATIC_DIR, filename)
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
