@@ -7,9 +7,10 @@ LISTS_FILE = "lists.txt"
 CHANNELS_FILE = "channels.json"
 STATIC_DIR = "static"
 
-
+# ---------------------------
+# 🔹 UČITAVANJE LISTA
+# ---------------------------
 def load_lists():
-    """Učitaj sve liste iz lists.txt fajla"""
     lists = []
     if not os.path.exists(LISTS_FILE):
         print("⚠️ Nema fajla lists.txt!")
@@ -27,8 +28,10 @@ def load_lists():
     return lists
 
 
+# ---------------------------
+# 🔹 UČITAVANJE KANALA
+# ---------------------------
 def load_channels():
-    """Učitaj željene kanale iz channels.json fajla"""
     if not os.path.exists(CHANNELS_FILE):
         print("⚠️ Nema channels.json fajla!")
         return []
@@ -42,22 +45,57 @@ def load_channels():
         return []
 
 
+# ---------------------------
+# 🔹 PARSIRANJE M3U
+# ---------------------------
 def parse_m3u(m3u_text):
-    """Parsira M3U tekst u dict: {naziv_kanala: url}"""
     channels = {}
-    name = None
+    name, group, logo = None, "Ostalo", ""
     for line in m3u_text.splitlines():
         if line.startswith("#EXTINF"):
-            m = re.search(r",(.+)$", line)
-            if m:
-                name = m.group(1).strip()
+            # Izvuci naziv kanala
+            m_name = re.search(r",(.+)$", line)
+            if m_name:
+                name = m_name.group(1).strip()
+            # Izvuci logo
+            m_logo = re.search(r'tvg-logo="([^"]+)"', line)
+            if m_logo:
+                logo = m_logo.group(1)
+            # Izvuci grupu
+            m_group = re.search(r'group-title="([^"]+)"', line)
+            if m_group:
+                group = m_group.group(1)
         elif line.startswith("http"):
             if name:
-                channels[name.strip()] = line.strip()
-                name = None
+                channels[name] = {"url": line.strip(), "group": group, "logo": logo}
+                name, group, logo = None, "Ostalo", ""
     return channels
 
 
+# ---------------------------
+# 🔹 NORMALIZACIJA IMENA
+# ---------------------------
+def normalize(name):
+    return (
+        name.lower()
+        .replace(" ", "")
+        .replace("-", "")
+        .replace(".", "")
+        .replace("_", "")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("š", "s")
+        .replace("č", "c")
+        .replace("ć", "c")
+        .replace("ž", "z")
+        .replace("đ", "dj")
+        .strip()
+    )
+
+
+# ---------------------------
+# 🔹 API: /api/channels
+# ---------------------------
 @app.route("/api/channels")
 def api_channels():
     lists = load_lists()
@@ -65,11 +103,11 @@ def api_channels():
     working_channels = []
     stream_map = {}
 
-    # 🔁 Provjeri svaku listu (timeout=5s)
+    # 🔁 Traži prvu radnu listu
     for l in lists:
         try:
             print(f"🔍 Provjeravam listu: {l['url']}")
-            r = requests.get(l["url"], timeout=5)
+            r = requests.get(l["url"], timeout=6)
             if r.status_code == 200 and "#EXTM3U" in r.text:
                 stream_map = parse_m3u(r.text)
                 print(f"✅ Lista radi: {l['name']} ({len(stream_map)} kanala pronađeno)")
@@ -82,45 +120,49 @@ def api_channels():
         print("⚠️ Nema funkcionalnih lista, vraćam prazan niz.")
         return jsonify([])
 
-    # 🔍 Normalizacija — ali bez uništavanja imena
-    def normalize(name):
-        return (
-            name.lower()
-            .replace(" ", "")
-            .replace("-", "")
-            .replace(".", "")
-            .replace("_", "")
-            .replace("(", "")
-            .replace(")", "")
-            .strip()
-        )
-
     normalized_streams = {normalize(k): v for k, v in stream_map.items()}
+    grouped = {}
 
     for ch in wanted_channels:
         name = ch["name"]
+        group = ch.get("group", "Ostalo")
+        logo = ch.get("logo", "/static/default.png")
         norm_name = normalize(name)
+        stream = normalized_streams.get(norm_name)
 
-        # 🔒 Samo tačno poklapanje po imenu (bez “pogađanja”)
-        url = normalized_streams.get(norm_name, None)
+        status = "ok" if stream else "nedostupan"
+        url = stream["url"] if stream else None
 
-        working_channels.append({
+        new_channel = {
             "name": name,
+            "logo": logo if logo else (stream["logo"] if stream else "/static/default.png"),
             "url": url,
-            "logo": ch.get("logo", "/static/default.png"),
-            "group": ch.get("group", "Ostalo"),
-            "status": "ok" if url else "nedostupan"
-        })
+            "status": status
+        }
 
-    print(f"✅ Pronađeno {sum(1 for c in working_channels if c['url'])} od {len(working_channels)} kanala.")
-    return jsonify(working_channels)
+        if group not in grouped:
+            grouped[group] = []
+        grouped[group].append(new_channel)
+
+    # ✅ Konvertuj u listu za JSON
+    grouped_list = [{"group": g, "channels": grouped[g]} for g in grouped]
+
+    print(f"📡 Ukupno grupa: {len(grouped_list)}")
+    total_ok = sum(1 for g in grouped_list for c in g["channels"] if c["status"] == "ok")
+    print(f"✅ Pronađeno {total_ok} radnih kanala.")
+    return jsonify(grouped_list)
 
 
+# ---------------------------
+# 🔹 STATICKE SLIKE
+# ---------------------------
 @app.route("/static/<path:filename>")
 def static_files(filename):
-    """Serviraj slike/logoe"""
     return send_from_directory(STATIC_DIR, filename)
 
 
+# ---------------------------
+# 🔹 START SERVERA
+# ---------------------------
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
