@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, send_from_directory
 import requests, json, re, os
-from difflib import get_close_matches
 
 app = Flask(__name__)
 
@@ -66,7 +65,7 @@ def api_channels():
     working_channels = []
     stream_map = {}
 
-    # 🔁 Pokušaj svaku listu (timeout=5s)
+    # 🔁 Provjeri svaku listu (timeout=5s)
     for l in lists:
         try:
             print(f"🔍 Provjeravam listu: {l['url']}")
@@ -83,7 +82,7 @@ def api_channels():
         print("⚠️ Nema funkcionalnih lista, vraćam prazan niz.")
         return jsonify([])
 
-    # 🔍 Pametnija normalizacija (čuva premium, hd, hr, sr, bih itd.)
+    # 🔍 Normalizacija — ali bez uništavanja imena
     def normalize(name):
         return (
             name.lower()
@@ -93,8 +92,6 @@ def api_channels():
             .replace("_", "")
             .replace("(", "")
             .replace(")", "")
-            .replace("channel", "")
-            .replace("kanal", "")
             .strip()
         )
 
@@ -103,38 +100,25 @@ def api_channels():
     for ch in wanted_channels:
         name = ch["name"]
         norm_name = normalize(name)
-        url = normalized_streams.get(norm_name)
 
-        # ako nije nađen tačan naziv — fuzzy pretraga
-        if not url:
-            candidates = get_close_matches(norm_name, normalized_streams.keys(), n=3, cutoff=0.8)
-            if candidates:
-                # prioritet: sadrži premium/hr/sr/bih ako i original ima
-                keywords = ["premium", "hd", "hr", "sr", "bih", "4k", "fight"]
-                best_match = None
-                for c in candidates:
-                    if all(k in c for k in keywords if k in norm_name):
-                        best_match = c
-                        break
-                if not best_match:
-                    best_match = candidates[0]
-                url = normalized_streams.get(best_match)
+        # 🔒 Samo tačno poklapanje po imenu (bez “pogađanja”)
+        url = normalized_streams.get(norm_name, None)
 
         working_channels.append({
             "name": name,
-            "url": url if url else None,
+            "url": url,
             "logo": ch.get("logo", "/static/default.png"),
             "group": ch.get("group", "Ostalo"),
             "status": "ok" if url else "nedostupan"
         })
 
-    print(f"✅ Ukupno pronađeno: {sum(1 for c in working_channels if c['url'])} od {len(working_channels)} kanala.")
+    print(f"✅ Pronađeno {sum(1 for c in working_channels if c['url'])} od {len(working_channels)} kanala.")
     return jsonify(working_channels)
 
 
 @app.route("/static/<path:filename>")
 def static_files(filename):
-    """Serviraj slike i logoe"""
+    """Serviraj slike/logoe"""
     return send_from_directory(STATIC_DIR, filename)
 
 
