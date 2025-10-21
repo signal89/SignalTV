@@ -1,12 +1,11 @@
-Lista 1 |http://olix.cc:8000/get.php?username=Slavisa89&password=TwxEk3RGvf&type=m3u_plus
+Lista 1 | http://client.nodomain.vip:80/get.php?username=UeOBmoaxiS&password=ehh4ZLZSnH&type=m3u_plus
 Lista 2 | http://bntvs.com:2052/get.php?username=KevinDurakovic&password=22tdN8fvqD&type=m3u_plus
-Lista 3 | http://zvjerka.com:2052/get.php?username=jamygrupavigor&password=5340900340&type=m3u_plus&output=ts
-Lista 4 |http://api.ottshow.net:80/get.php?username=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
-Lista 5 |http://stb.izipizi1.info:80/get.php?username=dg9YYJ&password=3gtXD1&type=m3u_plus
-Lista 6 | http://centrotv.me:25461/get.php?username=jmasofnahgrua109x&password=tB3CA6QJl0&type=m3u_plus
+Lista 3 | http://crnaudovica.xyz:8000/get.php?username=duskor&password=98713270388&type=m3u_plususername=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
+Lista 5 | http://cistakosuza.petica.info/get.php?username=Simicbrat1&password=gPWC20&type=m3u_plus
+Lista 6 | http://mleko01.mooo.com:19876/get.php?username=vL9g7dnHAY@@&password=zrqZOqc0ml@leg@&type=m3u_plus
 Lista 7 | http://tv.motv.club/playlist/MarkoCoric1/CoricMarko1/m3u_plus
 Lista 8 | http://grogi.online:80/get.php?username=Savonedic1050&password=Nedicsavo1050&type=m3u_plus
 Lista 9 | http://smart.mediaking.fi:8080/get.php?username=Ljatifiafiz@gmail.com&password=9Y@zDsEcXdJSxi6&type=m3u_plus&output=mpegts
-Lista 10 | http://goldmedia.tvweb.org//get.php?username=MarinkoTurki&password=eJScTkesfC&type=m3u_plus&output=ts
-Lista 11 | http://viptvs.cc:8080/get.php?username=StevicaRusmic&password=h7Tkfxv6a2JpmQKqV9gHDvgk8pg9gAtJ&type=m3u_plus&output=mpegts
-Lista 12 | http://hd.unitedpz.org:8080/get.php?username=brano@zg&password=9TGHFbScgbxCvWM&type=m3u_plus&output=mpegts
+Lista 10 | http://ottshow.net:80/get.php?username=Leona1&password=Leona1&type=m3u_plus
+Lista 11 | http://anotv.org:80/get.php?username=IvanZivaljevicIBOPRO&password=FQdMU3wL2S&type=m3u_plus&output=mpegts
+Lista 12 | http://caffe.link:25461/get.php?username=200Zaha&password=z5mn1fp3gp&type=m3u_plus
