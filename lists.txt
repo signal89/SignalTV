@@ -1,6 +1,7 @@
 Lista 1 | http://client.nodomain.vip:80/get.php?username=UeOBmoaxiS&password=ehh4ZLZSnH&type=m3u_plus
 Lista 2 | http://bntvs.com:2052/get.php?username=KevinDurakovic&password=22tdN8fvqD&type=m3u_plus
 Lista 3 | http://crnaudovica.xyz:8000/get.php?username=duskor&password=98713270388&type=m3u_plususername=Aleks.ziv9&password=Reactor10050&type=m3u_plus&output=ts
+Lista 4 | http://v2pro.online:8080/get.php?username=Branimir_Tolic&password=Tolic_Branimir&type=m3u
 Lista 5 | http://cistakosuza.petica.info/get.php?username=Simicbrat1&password=gPWC20&type=m3u_plus
 Lista 6 | http://mleko01.mooo.com:19876/get.php?username=vL9g7dnHAY@@&password=zrqZOqc0ml@leg@&type=m3u_plus
 Lista 7 | http://tv.motv.club/playlist/MarkoCoric1/CoricMarko1/m3u_plus
