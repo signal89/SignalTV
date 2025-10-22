@@ -1,7 +1,7 @@
 # server.py
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory
 import requests, json, re, os
-from difflib import get_close_matches
+from difflib import SequenceMatcher, get_close_matches
 
 app = Flask(__name__)
 
@@ -41,199 +41,101 @@ def load_wanted_channels():
         print("❌ Greška pri učitavanju channels.json:", e)
         return []
 
-def parse_m3u_text(text):
-    streams = {}
-    cur_name = None
-    cur_group = "Ostalo"
-    cur_logo = None
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        if line.startswith("#EXTINF"):
-            m_name = re.search(r',\s*(.+)$', line)
-            cur_name = m_name.group(1).strip() if m_name else None
-            m_group = re.search(r'group-title="([^"]+)"', line, re.IGNORECASE)
-            cur_group = m_group.group(1).strip() if m_group else "Ostalo"
-            m_logo = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
-            cur_logo = m_logo.group(1).strip() if m_logo else None
-        elif line.startswith("http") or line.startswith("rtmp") or line.startswith("udp://"):
-            if cur_name:
-                streams[cur_name] = {
-                    "url": line,
-                    "group": cur_group,
-                    "logo": cur_logo
-                }
-            cur_name = None
-            cur_group = "Ostalo"
-            cur_logo = None
-    return streams
-
-def fetch_and_parse(url, timeout=10):
-    try:
-        r = requests.get(url, timeout=timeout)
-        if r.status_code == 200 and "#EXTM3U" in r.text:
-            parsed = parse_m3u_text(r.text)
-            print(f"[fetch] {url} -> {len(parsed)} entries")
-            return parsed
-    except Exception as e:
-        print(f"[fetch error] {url} -> {e}")
-    return {}
-
 def normalize(name: str):
     if not name:
         return ""
     s = name.lower()
-    # replace diacritics
-    for a, b in [("š","s"),("č","c"),("ć","c"),("ž","z"),("đ","dj")]:
+    repl = [("š","s"),("č","c"),("ć","c"),("ž","z"),("đ","dj"),(".", ""),(",", ""),("premium","premijum")]
+    for a, b in repl:
         s = s.replace(a,b)
-    # remove punctuation but keep words
     s = re.sub(r'[^a-z0-9 ]+', ' ', s)
-    s = re.sub(r'\s+', ' ', s).strip()
-    return s
+    return re.sub(r'\s+', ' ', s).strip()
 
-def find_best_match(norm_want, keys_list, cutoff=0.65):
-    """Use difflib to find close match; fallback to substring heuristics."""
-    # exact match
-    if norm_want in keys_list:
-        return norm_want
-    # difflib
-    matches = get_close_matches(norm_want, keys_list, n=1, cutoff=cutoff)
-    if matches:
-        return matches[0]
-    # token subset: if all tokens of want appear in candidate
-    want_tokens = set(norm_want.split())
-    for k in keys_list:
-        k_tokens = set(k.split())
-        if want_tokens and want_tokens.issubset(k_tokens):
-            return k
-    # last try: candidate tokens subset of want (handles reversed order)
-    for k in keys_list:
-        if set(k.split()).issubset(want_tokens):
-            return k
-    return None
+def similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
 
-def choose_logo(channel_logo_from_json, stream_logo):
-    # prefer static if exists locally
-    if channel_logo_from_json:
-        if channel_logo_from_json.startswith("/static/"):
-            local_path = channel_logo_from_json.lstrip("/")
-            if os.path.exists(local_path):
-                return channel_logo_from_json
-            else:
-                # file not present locally; still return the path - caller can decide
-                return channel_logo_from_json
-        else:
-            return channel_logo_from_json
-    if stream_logo:
-        return stream_logo
-    return DEFAULT_LOGO
+def parse_m3u_text(text):
+    streams = {}
+    cur_name, cur_group, cur_logo = None, "Ostalo", None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#EXTINF"):
+            m_name = re.search(r',\s*(.+)$', line)
+            m_group = re.search(r'group-title="([^"]+)"', line, re.IGNORECASE)
+            m_logo = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
+            cur_name = m_name.group(1).strip() if m_name else None
+            cur_group = m_group.group(1).strip() if m_group else "Ostalo"
+            cur_logo = m_logo.group(1).strip() if m_logo else None
+        elif line.startswith(("http", "rtmp", "udp://")):
+            if cur_name:
+                streams[cur_name] = {"url": line, "group": cur_group, "logo": cur_logo}
+                cur_name = None
+    return streams
+
+def fetch_and_parse(url):
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200 and "#EXTM3U" in r.text:
+            parsed = parse_m3u_text(r.text)
+            print(f"[OK lista] {url} -> {len(parsed)} kanala")
+            return parsed
+    except Exception as e:
+        print(f"[Greška lista] {url} -> {e}")
+    return {}
 
 # -------------------------
-# BUILD MAP
+# MAIN BUILDER
 # -------------------------
 def build_channel_map():
     lists = load_lists()
     wanted = load_wanted_channels()
-
     if not lists:
-        print("⚠️ lists.txt prazna")
+        print("⚠️ Nema lists.txt")
         return {}
 
-    # 1) find first working list (primary)
-    primary_streams = {}
-    working_urls = []
-    primary_idx = None
-    for idx, l in enumerate(lists):
+    # pronađi prvu radnu listu
+    all_streams = []
+    for l in lists:
         parsed = fetch_and_parse(l["url"])
         if parsed:
-            primary_streams = parsed
-            working_urls.append(l["url"])
-            primary_idx = idx
-            print(f"[primary] using {l['url']}")
-            break
-        else:
-            print(f"[skip] {l['url']} not working")
+            all_streams.append(parsed)
 
-    if primary_idx is None:
-        # no primary found: try to gather any working lists; if none -> empty
-        for l in lists:
-            parsed = fetch_and_parse(l["url"])
-            if parsed:
-                working_urls.append(l["url"])
-        if not working_urls:
-            print("❌ Nijedna lista ne radi")
-            return {}
-        primary_streams = fetch_and_parse(working_urls[0])
-        primary_idx = next((i for i, x in enumerate(lists) if x["url"] == working_urls[0]), 0)
-        print(f"[fallback primary] using {working_urls[0]}")
+    if not all_streams:
+        print("❌ Nijedna lista nije radna")
+        return {}
 
-    # 2) build combined map: normalized_name -> {orig_name, url, group, logo}
-    combined = {}
-    # first take primary streams (priority)
-    for name, info in primary_streams.items():
-        nk = normalize(name)
-        combined[nk] = {
-            "orig_name": name,
-            "url": info.get("url"),
-            "group": info.get("group", "Ostalo"),
-            "logo": info.get("logo")
-        }
-
-    # then scan other lists to fill missing keys (but don't overwrite existing)
-    for l in lists:
-        if l["url"] == lists[primary_idx]["url"]:
-            continue
-        parsed = fetch_and_parse(l["url"])
-        if not parsed:
-            continue
-        for name, info in parsed.items():
-            nk = normalize(name)
-            if nk not in combined:
-                combined[nk] = {
-                    "orig_name": name,
-                    "url": info.get("url"),
-                    "group": info.get("group", "Ostalo"),
-                    "logo": info.get("logo")
-                }
-
-    # prepare list of available normalized keys once
-    available_keys = list(combined.keys())
-
-    # 3) map wanted channels
     grouped = {}
+
     for ch in wanted:
-        want_name = ch.get("name", "")
-        want_group = ch.get("group", "Ostalo")
-        want_logo = ch.get("logo") or None
+        cname = ch.get("name", "")
+        cgroup = ch.get("group", "Ostalo")
+        clog = ch.get("logo") or DEFAULT_LOGO
 
-        nk = normalize(want_name)
-        matched_key = None
+        n_want = normalize(cname)
+        best_url = None
+        best_logo = None
 
-        # try direct normalized lookup
-        if nk in combined:
-            matched_key = nk
-        else:
-            # fuzzy / tolerant match
-            matched_key = find_best_match(nk, available_keys, cutoff=0.65)
+        # traži kroz sve radne liste dok ne nađe najbolji match
+        best_ratio = 0.0
+        for streams in all_streams:
+            for sname, sinfo in streams.items():
+                n_src = normalize(sname)
+                ratio = similar(n_want, n_src)
+                if n_want in n_src or n_src in n_want:
+                    ratio += 0.3
+                if ratio > best_ratio and ratio >= 0.55:
+                    best_ratio = ratio
+                    best_url = sinfo.get("url")
+                    best_logo = sinfo.get("logo")
 
-        if matched_key:
-            stream = combined[matched_key]
-            url = stream.get("url")
-            status = "ok" if url else "nedostupan"
-            final_logo = choose_logo(want_logo, stream.get("logo"))
-        else:
-            url = None
-            status = "nedostupan"
-            final_logo = choose_logo(want_logo, None)
-
-        item = {
-            "name": want_name,
-            "url": url,
-            "logo": final_logo,
-            "status": status
-        }
-        grouped.setdefault(want_group or "Ostalo", []).append(item)
+        grouped.setdefault(cgroup, []).append({
+            "name": cname,
+            "url": best_url,
+            "logo": best_logo or clog or DEFAULT_LOGO,
+            "status": "ok" if best_url else "nedostupan"
+        })
 
     return grouped
 
@@ -243,8 +145,7 @@ def build_channel_map():
 @app.route("/api/channels")
 def api_channels():
     grouped = build_channel_map()
-    out = [{"group": g, "channels": grouped[g]} for g in grouped]
-    return jsonify(out)
+    return jsonify([{"group": g, "channels": grouped[g]} for g in grouped])
 
 @app.route("/static/<path:filename>")
 def static_files(filename):
