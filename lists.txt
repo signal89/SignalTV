@@ -10,3 +10,21 @@ Lista 9 | http://smart.mediaking.fi:8080/get.php?username=Ljatifiafiz@gmail.com&
 Lista 10 | http://ottshow.net:80/get.php?username=Leona1&password=Leona1&type=m3u_plus
 Lista 11 | http://anotv.org:80/get.php?username=IvanZivaljevicIBOPRO&password=FQdMU3wL2S&type=m3u_plus&output=mpegts
 Lista 12 | http://caffe.link:25461/get.php?username=200Zaha&password=z5mn1fp3gp&type=m3u_plus
+Lista 13 | http://live.andtv.org:5115/get.php?username=RVJqKUxvXA&password=MdvFPDBOwr&type=m3u_plus&output=mpegts
+Lista 14 | http://4hayziserivices.dynamic-dns.net:18800/get.php?username=e8Hsks6Q&password=pSdEmjN&type=m3u_plus&output=ts
+Lista 15 | http://magovi.uk:8000/get.php?username=igorpranjic&password=igor123&type=m3u_plus
+Lista 16 | http://grogi.online/get.php?username=Zulejha1120&password=Zulejha1120&type=m3u_plus
+Lista 17 | http://ott.global-telecom.eu:25461/get.php?username=MKgreenday3356&password=vyBDXy8NtA&type=m3u_plus
+Lista 18 | http://res1.mozaknapasu.com:8080/get.php?username=JaskoM&password=jnK5QSQNRTcU&type=m3u_plus
+Lista 19 | http://panel.domacitv.com:2095/get.php?username=SamirKaltak1&password=123456789&type=m3u_plus
+Lista 20 | http://crnaudovica.xyz:8000/get.php?username=00:1A:79:4D:09:EE&password=001A794D09EE&type=m3u_plus
+
+
+
+
+
+
+
+
+
+
