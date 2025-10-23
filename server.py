@@ -1,156 +1,124 @@
-# server.py
-from flask import Flask, jsonify, send_from_directory
-import requests, json, re, os
-from difflib import SequenceMatcher, get_close_matches
+from flask import Flask, jsonify
+import requests
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 app = Flask(__name__)
 
-LISTS_FILE = "lists.txt"
-CHANNELS_FILE = "channels.json"
-STATIC_DIR = "static"
-DEFAULT_LOGO = "/static/default.png"
+# Cache za brže učitavanje
+cache = {"data": None, "timestamp": 0}
+CACHE_DURATION = 600  # 10 minuta
 
-# -------------------------
-# HELPERS
-# -------------------------
-def load_lists():
-    lists = []
-    if not os.path.exists(LISTS_FILE):
-        print("⚠️ Nema fajla lists.txt!")
-        return lists
-    with open(LISTS_FILE, "r", encoding="utf-8") as f:
-        for i, line in enumerate(f, start=1):
-            line = line.strip()
-            if not line:
-                continue
-            if " | " in line:
-                name, url = line.split(" | ", 1)
-            else:
-                name, url = f"Lista {i}", line
-            lists.append({"id": i, "name": name.strip(), "url": url.strip()})
-    return lists
-
-def load_wanted_channels():
-    if not os.path.exists(CHANNELS_FILE):
-        print("⚠️ Nema channels.json fajla!")
-        return []
-    try:
-        with open(CHANNELS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print("❌ Greška pri učitavanju channels.json:", e)
-        return []
-
-def normalize(name: str):
-    if not name:
-        return ""
-    s = name.lower()
-    repl = [("š","s"),("č","c"),("ć","c"),("ž","z"),("đ","dj"),(".", ""),(",", ""),("premium","premijum")]
-    for a, b in repl:
-        s = s.replace(a,b)
-    s = re.sub(r'[^a-z0-9 ]+', ' ', s)
-    return re.sub(r'\s+', ' ', s).strip()
-
-def similar(a, b):
-    return SequenceMatcher(None, a, b).ratio()
 
 def parse_m3u_text(text):
-    streams = {}
-    cur_name, cur_group, cur_logo = None, "Ostalo", None
-    for line in text.splitlines():
+    """Parsiraj M3U tekst u listu kanala"""
+    channels = []
+    lines = text.splitlines()
+    name = logo = group = None
+
+    for line in lines:
         line = line.strip()
-        if not line:
-            continue
         if line.startswith("#EXTINF"):
-            m_name = re.search(r',\s*(.+)$', line)
-            m_group = re.search(r'group-title="([^"]+)"', line, re.IGNORECASE)
-            m_logo = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
-            cur_name = m_name.group(1).strip() if m_name else None
-            cur_group = m_group.group(1).strip() if m_group else "Ostalo"
-            cur_logo = m_logo.group(1).strip() if m_logo else None
-        elif line.startswith(("http", "rtmp", "udp://")):
-            if cur_name:
-                streams[cur_name] = {"url": line, "group": cur_group, "logo": cur_logo}
-                cur_name = None
-    return streams
+            name = logo = group = ""
+            if 'tvg-logo="' in line:
+                try:
+                    logo = line.split('tvg-logo="')[1].split('"')[0]
+                except:
+                    logo = ""
+            if 'group-title="' in line:
+                try:
+                    group = line.split('group-title="')[1].split('"')[0]
+                except:
+                    group = ""
+            if "," in line:
+                name = line.split(",")[-1].strip()
+        elif line.startswith("http"):
+            url = line.strip()
+            if name and url:
+                channels.append({
+                    "name": name,
+                    "logo": logo,
+                    "group": group,
+                    "url": url
+                })
+    return channels
+
 
 def fetch_and_parse(url):
+    """Preuzmi i parsiraj jednu listu"""
     try:
-        r = requests.get(url, timeout=10)
+        clean_url = url.split("username=")[0] + "username=" + url.split("username=")[1].split("&")[0] + "&password=" + url.split("password=")[1].split("&")[0] + "&type=m3u_plus"
+        print(f"[fetch] {clean_url}")
+    except:
+        clean_url = url
+
+    try:
+        r = requests.get(clean_url, timeout=15)
         if r.status_code == 200 and "#EXTM3U" in r.text:
             parsed = parse_m3u_text(r.text)
-            print(f"[OK lista] {url} -> {len(parsed)} kanala")
+            print(f"[OK lista] {clean_url} -> {len(parsed)} kanala")
             return parsed
+        else:
+            print(f"[FAIL lista] {clean_url} status {r.status_code}")
     except Exception as e:
-        print(f"[Greška lista] {url} -> {e}")
-    return {}
+        print(f"[Greška lista] {clean_url} -> {e}")
+    return []
 
-# -------------------------
-# MAIN BUILDER
-# -------------------------
-def build_channel_map():
-    lists = load_lists()
-    wanted = load_wanted_channels()
-    if not lists:
-        print("⚠️ Nema lists.txt")
-        return {}
 
-    # pronađi prvu radnu listu
-    all_streams = []
-    for l in lists:
-        parsed = fetch_and_parse(l["url"])
-        if parsed:
-            all_streams.append(parsed)
+def load_all_lists():
+    """Učitaj sve liste iz fajla lists.txt"""
+    try:
+        with open("lists.txt", "r", encoding="utf-8") as f:
+            lines = [x.strip() for x in f.readlines() if "|" in x]
+    except FileNotFoundError:
+        print("[Greška] Fajl lists.txt nije pronađen.")
+        return []
 
-    if not all_streams:
-        print("❌ Nijedna lista nije radna")
-        return {}
+    urls = [x.split("|")[1].strip() for x in lines if x.strip()]
+    all_channels = []
+
+    print(f"[INFO] Učitavam {len(urls)} lista...")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(fetch_and_parse, urls))
+
+    for result in results:
+        if result:
+            all_channels.extend(result)
+
+    print(f"[INFO] Ukupno učitano {len(all_channels)} kanala.")
+    return all_channels
+
+
+@app.route("/api/channels", methods=["GET"])
+def get_channels():
+    """API endpoint koji vraća sve kanale"""
+    global cache
+    now = time.time()
+
+    if cache["data"] and (now - cache["timestamp"] < CACHE_DURATION):
+        return jsonify(cache["data"])
+
+    all_channels = load_all_lists()
 
     grouped = {}
-
-    for ch in wanted:
-        cname = ch.get("name", "")
-        cgroup = ch.get("group", "Ostalo")
-        clog = ch.get("logo") or DEFAULT_LOGO
-
-        n_want = normalize(cname)
-        best_url = None
-        best_logo = None
-
-        # traži kroz sve radne liste dok ne nađe najbolji match
-        best_ratio = 0.0
-        for streams in all_streams:
-            for sname, sinfo in streams.items():
-                n_src = normalize(sname)
-                ratio = similar(n_want, n_src)
-                if n_want in n_src or n_src in n_want:
-                    ratio += 0.3
-                if ratio > best_ratio and ratio >= 0.55:
-                    best_ratio = ratio
-                    best_url = sinfo.get("url")
-                    best_logo = sinfo.get("logo")
-
-        grouped.setdefault(cgroup, []).append({
-            "name": cname,
-            "url": best_url,
-            "logo": best_logo or clog or DEFAULT_LOGO,
-            "status": "ok" if best_url else "nedostupan"
+    for ch in all_channels:
+        group = ch.get("group", "Ostalo") or "Ostalo"
+        grouped.setdefault(group, []).append({
+            "name": ch["name"],
+            "logo": ch["logo"],
+            "url": ch["url"],
+            "status": "ok"
         })
 
-    return grouped
+    data = {"channels": grouped}
+    cache = {"data": data, "timestamp": now}
+    return jsonify(data)
 
-# -------------------------
-# ROUTES
-# -------------------------
-@app.route("/api/channels")
-def api_channels():
-    grouped = build_channel_map()
-    return jsonify([{"group": g, "channels": grouped[g]} for g in grouped])
 
-@app.route("/static/<path:filename>")
-def static_files(filename):
-    return send_from_directory(STATIC_DIR, filename)
+@app.route("/")
+def home():
+    return "<h3>✅ SignalTV Server radi!</h3><p>Idi na <a href='/api/channels'>/api/channels</a> da vidiš kanale.</p>"
+
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
