@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 LISTS_FILE = "lists.txt"
 CACHE_DURATION = 300  # 5 minuta
-MAX_WORKERS = 8
+MAX_WORKERS = 4
 
 cache = {"data": None, "timestamp": 0}
 
@@ -158,4 +158,3 @@ def home():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
- 
