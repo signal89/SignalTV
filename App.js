@@ -1,11 +1,10 @@
-// App.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
-const SERVER_URL = 'https://signaltv.onrender.com/api/channels'; // zamijeni sa tvojim serverom
+const SERVER_URL = 'https://signaltv.onrender.com/api/channels';
 
 function WelcomeScreen({ navigation }) {
   const [code, setCode] = useState('');
@@ -55,9 +54,9 @@ function HomeScreen({ navigation }) {
         setData(j);
         setLoading(false);
       })
-      .catch(e => {
+      .catch(() => {
         setLoading(false);
-        Alert.alert('Greška', 'Ne mogu dohvatiti kanale');
+        Alert.alert('Greška', 'Ne mogu dohvatiti kanale sa servera');
       });
   }, []);
 
@@ -68,6 +67,7 @@ function HomeScreen({ navigation }) {
         <Text>Učitavanje...</Text>
       </View>
     );
+
   if (!data)
     return (
       <View style={styles.center}>
@@ -123,7 +123,6 @@ function CategoryScreen({ route, navigation }) {
             style={styles.channelButton}
             onPress={() =>
               navigation.navigate('Group', {
-                category,
                 groupName: item,
                 channels: payload[item],
               })
@@ -142,7 +141,7 @@ function CategoryScreen({ route, navigation }) {
 function GroupScreen({ route }) {
   const { groupName, channels } = route.params;
 
-  const onPress = ch => {
+  const openChannel = ch => {
     if (!ch.url) {
       Alert.alert('Nedostupan', 'Ovaj kanal nema URL');
       return;
@@ -150,14 +149,6 @@ function GroupScreen({ route }) {
     Linking.openURL(ch.url).catch(() =>
       Alert.alert('Greška', 'Ne mogu otvoriti URL')
     );
-  };
-
-  const onLongPress = ch => {
-    Alert.alert('Opcije kanala', ch.name, [
-      { text: 'Otvori', onPress: () => onPress(ch) },
-      { text: 'Kopiraj URL', onPress: () => {} },
-      { text: 'Zatvori', style: 'cancel' },
-    ]);
   };
 
   return (
@@ -169,8 +160,7 @@ function GroupScreen({ route }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.channelButton}
-            onPress={() => onPress(item)}
-            onLongPress={() => onLongPress(item)}
+            onPress={() => openChannel(item)}
           >
             <Text style={styles.channelText}>{item.name}</Text>
           </TouchableOpacity>
