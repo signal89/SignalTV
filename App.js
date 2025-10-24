@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Linking } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Linking, Image } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
-const SERVER_URL = 'https://signaltv.onrender.com/api/channels';
+const SERVER_URL = 'https://signaltv.onrender.com/api/channels'; // Render server
 
 function WelcomeScreen({ navigation }) {
   const [code, setCode] = useState('');
@@ -162,6 +162,9 @@ function GroupScreen({ route }) {
             style={styles.channelButton}
             onPress={() => openChannel(item)}
           >
+            {item.logo ? (
+              <Image source={{ uri: item.logo }} style={styles.logo} />
+            ) : null}
             <Text style={styles.channelText}>{item.name}</Text>
           </TouchableOpacity>
         )}
@@ -188,7 +191,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
   input: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 10, width: '100%' },
-  channelButton: { backgroundColor: '#007AFF', padding: 12, borderRadius: 8, marginVertical: 6 },
-  channelText: { color: '#fff', fontWeight: '700' },
+  channelButton: { backgroundColor: '#007AFF', padding: 12, borderRadius: 8, marginVertical: 6, alignItems: 'center' },
+  channelText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
   error: { color: 'red', marginBottom: 10 },
+  logo: { width: '100%', height: 150, resizeMode: 'cover', borderRadius: 8, marginBottom: 5 },
 });
