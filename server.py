@@ -1,8 +1,10 @@
 from flask import Flask, jsonify, send_from_directory
 import requests, time, os, re
 from concurrent.futures import ThreadPoolExecutor
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Omogućava pristup sa Expo app-a
 
 LISTS_FILE = "lists.txt"
 CACHE_DURATION = 300  # 5 minuta
@@ -93,7 +95,7 @@ def build_channels_structure(lists):
     working = [s for s in statuses if s["status"] == "ok"]
 
     if not working:
-        return {"status_lists": statuses, "categories": {}}
+        return {"status_lists": statuses, "categories": {"LiveTV": {}, "Filmovi": {}, "Serije": {}}}
 
     primary_text, primary_url = None, None
     for s in working:
@@ -104,7 +106,7 @@ def build_channels_structure(lists):
             break
 
     if not primary_text:
-        return {"status_lists": statuses, "categories": {}}
+        return {"status_lists": statuses, "categories": {"LiveTV": {}, "Filmovi": {}, "Serije": {}}}
 
     combined = parse_m3u_text(primary_text)
 

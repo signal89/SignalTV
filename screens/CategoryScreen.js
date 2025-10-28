@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SERVER_URL } from "../config";
 
@@ -9,20 +9,21 @@ export default function CategoryScreen({ route, navigation }) {
   const [hiddenGroups, setHiddenGroups] = useState([]);
 
   useEffect(() => {
-    fetch(SERVER_URL)
-      .then(r => r.json())
-      .then(j => {
+    fetch(`${SERVER_URL}/api/channels`)
+      .then((r) => r.json())
+      .then((j) => {
         const catGroups = Object.keys(j.categories[category] || {});
         setGroups(catGroups);
-        AsyncStorage.getItem(`hidden_${category}`).then(h => {
+        AsyncStorage.getItem(`hidden_${category}`).then((h) => {
           if (h) setHiddenGroups(JSON.parse(h));
         });
-      });
+      })
+      .catch((err) => console.log("Greška:", err));
   }, []);
 
-  const toggleGroup = grp => {
+  const toggleGroup = (grp) => {
     let newHidden = [...hiddenGroups];
-    if (hiddenGroups.includes(grp)) newHidden = newHidden.filter(g => g !== grp);
+    if (hiddenGroups.includes(grp)) newHidden = newHidden.filter((g) => g !== grp);
     else newHidden.push(grp);
     setHiddenGroups(newHidden);
     AsyncStorage.setItem(`hidden_${category}`, JSON.stringify(newHidden));
@@ -33,12 +34,12 @@ export default function CategoryScreen({ route, navigation }) {
       <Text style={{ color: "white", fontSize: 20, marginBottom: 10 }}>{category}</Text>
       <FlatList
         data={groups}
-        keyExtractor={item => item}
+        keyExtractor={(item) => item}
         renderItem={({ item }) =>
           !hiddenGroups.includes(item) && (
             <TouchableOpacity
               style={styles.groupBtn}
-              onPress={() => navigation.navigate("Group", { groupName: item })}
+              onPress={() => navigation.navigate("Group", { category, groupName: item })}
               onLongPress={() => toggleGroup(item)}
             >
               <Text style={{ color: "#fff" }}>{item}</Text>
@@ -46,7 +47,7 @@ export default function CategoryScreen({ route, navigation }) {
           )
         }
       />
-      <Text style={{ color: "white", marginTop: 10 }}>Drži grupu za sakriti/ponovo prikazati</Text>
+      <Text style={{ color: "white", marginTop: 10 }}>Drži grupu da je sakriješ/vratiš</Text>
     </View>
   );
 }

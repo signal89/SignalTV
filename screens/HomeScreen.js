@@ -1,22 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, FlatList } from "react-native";
-import { SERVER_URL } from "../config"; // definiraj SERVER_URL u config.js ili direktno ovdje
+import { SERVER_URL } from "../config";
 
 export default function HomeScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(SERVER_URL)
-      .then(res => res.json())
-      .then(json => {
-        setCategories(Object.keys(json.categories || {}));
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/api/channels`);
+        const json = await res.json();
+        if (json && json.categories && typeof json.categories === "object") {
+          setCategories(Object.keys(json.categories));
+        } else {
+          setCategories([]);
+        }
+      } catch (err) {
+        console.log("Greška:", err);
+        alert("Greška pri učitavanju kategorija");
+      } finally {
         setLoading(false);
-      })
-      .catch(err => {
-        setLoading(false);
-        alert("Greška prilikom učitavanja kategorija");
-      });
+      }
+    };
+    fetchData();
   }, []);
 
   const renderItem = ({ item }) => (
@@ -30,14 +37,17 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {loading ? <Text style={{ color: "white" }}>Učitavanje...</Text> :
+      {loading ? (
+        <Text style={{ color: "white" }}>Učitavanje...</Text>
+      ) : (
         <FlatList
           data={categories}
           renderItem={renderItem}
-          keyExtractor={item => item}
-          numColumns={3} // 3 kocke po redu
+          keyExtractor={(item) => item}
+          numColumns={3}
           contentContainerStyle={{ padding: 10 }}
-        />}
+        />
+      )}
     </View>
   );
 }
