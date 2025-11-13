@@ -97,28 +97,20 @@ def build_channels_structure(lists):
     if not working:
         return {"status_lists": statuses, "categories": {"LiveTV": {}, "Filmovi": {}, "Serije": {}}}
 
-    primary_text, primary_url = None, None
-    for s in working:
-        ok, txt = fetch_url(s["url"])
-        if ok and txt:
-            primary_text = txt
-            primary_url = s["url"]
-            break
-
-    if not primary_text:
-        return {"status_lists": statuses, "categories": {"LiveTV": {}, "Filmovi": {}, "Serije": {}}}
-
-    combined = parse_m3u_text(primary_text)
+    combined = {}
+    first_done = False
 
     for s in working:
-        if s["url"] == primary_url:
-            continue
         ok, txt = fetch_url(s["url"])
         if ok and txt:
             parsed = parse_m3u_text(txt)
             for name, info in parsed.items():
                 if name not in combined:
                     combined[name] = info
+            if not first_done:
+                first_done = True
+                # Prva lista koja radi odmah se koristi kao "primary"
+                continue
 
     categories = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
     for name, info in combined.items():
