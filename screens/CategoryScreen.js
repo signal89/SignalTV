@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SERVER_URL } from "../config";
 
@@ -7,27 +7,50 @@ export default function CategoryScreen({ route, navigation }) {
   const { category } = route.params;
   const [groups, setGroups] = useState([]);
   const [hiddenGroups, setHiddenGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${SERVER_URL}/api/channels`)
-      .then((r) => r.json())
-      .then((j) => {
-        const catGroups = Object.keys(j.categories[category] || {});
-        setGroups(catGroups);
-        AsyncStorage.getItem(`hidden_${category}`).then((h) => {
-          if (h) setHiddenGroups(JSON.parse(h));
-        });
-      })
-      .catch((err) => console.log("Greška:", err));
-  }, []);
+    const fetchGroups = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/api/channels`);
+        const json = await res.json();
+        const catObj = (json && json.categories && json.categories[category]) ? json.categories[category] : {};
+        setGroups(Object.keys(catObj));
+        const h = await AsyncStorage.getItem(`hidden_${category}`);
+        if (h) setHiddenGroups(JSON.parse(h));
+      } catch (err) {
+        console.log("Greška:", err);
+        setGroups([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGroups();
+  }, [category]);
 
-  const toggleGroup = (grp) => {
+  const toggleGroup = async (grp) => {
     let newHidden = [...hiddenGroups];
     if (hiddenGroups.includes(grp)) newHidden = newHidden.filter((g) => g !== grp);
     else newHidden.push(grp);
     setHiddenGroups(newHidden);
-    AsyncStorage.setItem(`hidden_${category}`, JSON.stringify(newHidden));
+    await AsyncStorage.setItem(`hidden_${category}`, JSON.stringify(newHidden));
   };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text style={{ color: "white" }}>Učitavanje...</Text>
+      </View>
+    );
+  }
+
+  if (!groups.length) {
+    return (
+      <View style={styles.center}>
+        <Text style={{ color: "white" }}>Nema dostupnih grupa u ovoj kategoriji.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, padding: 10, backgroundColor: "#000" }}>
@@ -37,27 +60,18 @@ export default function CategoryScreen({ route, navigation }) {
         keyExtractor={(item) => item}
         renderItem={({ item }) =>
           !hiddenGroups.includes(item) && (
-            <TouchableOpacity
-              style={styles.groupBtn}
-              onPress={() => navigation.navigate("Group", { category, groupName: item })}
-              onLongPress={() => toggleGroup(item)}
-            >
+            <TouchableOpacity style={styles.groupBtn} onPress={() => navigation.navigate("Group", { category, groupName: item })} onLongPress={() => toggleGroup(item)}>
               <Text style={{ color: "#fff" }}>{item}</Text>
             </TouchableOpacity>
           )
         }
       />
-      <Text style={{ color: "white", marginTop: 10 }}>Drži grupu da je sakriješ/vratiš</Text>
+      <Text style={{ color: "white", marginTop: 10 }}>Drži grupu za sakriti/ponovo prikazati</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  groupBtn: {
-    backgroundColor: "#007AFF",
-    padding: 12,
-    marginVertical: 6,
-    borderRadius: 8,
-    alignItems: "center",
-  },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000" },
+  groupBtn: { backgroundColor: "#007AFF", padding: 12, marginVertical: 6, borderRadius: 8, alignItems: "center" },
 });
