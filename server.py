@@ -45,18 +45,24 @@ def parse_m3u_text(text):
         if line.startswith("#EXTINF"):
             m_name = re.search(r",\s*(.+)$", line)
             cur_name = m_name.group(1).strip() if m_name else None
+
             mg = re.search(r'group-title="([^"]+)"', line, re.IGNORECASE)
             cur_group = mg.group(1).strip() if mg else "Ostalo"
+
             ml = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
             cur_logo = ml.group(1).strip() if ml else None
         elif line.startswith(("http", "udp://", "rtmp")):
             if cur_name:
-                streams[cur_name] = {"url": line, "group": cur_group, "logo": cur_logo}
+                streams[cur_name] = {
+                    "url": line,
+                    "group": cur_group,
+                    "logo": cur_logo,
+                }
             cur_name, cur_group, cur_logo = None, "Ostalo", None
     return streams
 
 
-def fetch_url(url, timeout=8):
+def fetch_url(url, timeout=4):  # kraći timeout da mrtve liste brže padnu
     try:
         r = requests.get(url, timeout=timeout)
         if r.status_code == 200 and quick_parse_for_status(r.text):
@@ -80,7 +86,12 @@ def test_all_lists(lists):
 
     def check(l):
         ok, _ = fetch_url(l["url"])
-        return {"id": l["id"], "name": l["name"], "url": l["url"], "status": "ok" if ok else "fail"}
+        return {
+            "id": l["id"],
+            "name": l["name"],
+            "url": l["url"],
+            "status": "ok" if ok else "fail",
+        }
 
     if not lists:
         return status
@@ -95,33 +106,32 @@ def build_channels_structure(lists):
     working = [s for s in statuses if s["status"] == "ok"]
 
     if not working:
-        return {"status_lists": statuses, "categories": {"LiveTV": {}, "Filmovi": {}, "Serije": {}}}
+        empty = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
+        return {"status_lists": statuses, "categories": empty}
 
+    # UZMI SAMO PRVU RADNU LISTU
+    primary_list = working[0]
     combined = {}
-    first_done = False
 
-    for s in working:
-        ok, txt = fetch_url(s["url"])
-        if ok and txt:
-            parsed = parse_m3u_text(txt)
-            for name, info in parsed.items():
-                if name not in combined:
-                    combined[name] = info
-            if not first_done:
-                first_done = True
-                # Prva lista koja radi odmah se koristi kao "primary"
-                continue
+    ok, txt = fetch_url(primary_list["url"])
+    if ok and txt:
+        parsed = parse_m3u_text(txt)
+        for name, info in parsed.items():
+            if name not in combined:
+                combined[name] = info
 
     categories = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
     for name, info in combined.items():
         cat = categorize_by_group_name(info.get("group", "Ostalo"))
         grp = info.get("group") or "Ostalo"
         categories.setdefault(cat, {})
-        categories[cat].setdefault(grp, []).append({
-            "name": name,
-            "url": info.get("url"),
-            "logo": info.get("logo")
-        })
+        categories[cat].setdefault(grp, []).append(
+            {
+                "name": name,
+                "url": info.get("url"),
+                "logo": info.get("logo"),
+            }
+        )
 
     return {"status_lists": statuses, "categories": categories}
 
