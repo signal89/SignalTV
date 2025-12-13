@@ -14,11 +14,11 @@ export default function PlayerScreen({ route, navigation }) {
   const { channelList = [], index = 0 } = route.params || {};
   const [currentIndex, setCurrentIndex] = useState(index);
   const [showOverlay, setShowOverlay] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const videoRef = useRef(null);
 
   const channel = channelList[currentIndex];
 
+  // back dugme: prvo zatvara overlay, pa tek onda ide nazad
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
@@ -32,14 +32,6 @@ export default function PlayerScreen({ route, navigation }) {
     );
     return () => backHandler.remove();
   }, [showOverlay]);
-
-  useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [currentIndex]);
 
   const next = () => {
     if (currentIndex < channelList.length - 1) {
@@ -65,34 +57,32 @@ export default function PlayerScreen({ route, navigation }) {
     );
   }
 
-  const { width } = Dimensions.get("window");
-  const videoHeight = (width * 9) / 16;
+  const { width, height } = Dimensions.get("window");
 
   return (
     <View style={styles.container}>
+      {/* Puni ekran – video zauzima cijeli ekran */}
       <TouchableOpacity
+        style={{ flex: 1 }}
         activeOpacity={1}
-        style={{ width: "100%", alignItems: "center" }}
         onPress={toggleOverlay}
       >
         <Video
           ref={videoRef}
           source={{ uri: channel.url }}
-          style={{
-            width: width,
-            height: videoHeight,
-            backgroundColor: "black",
-          }}
-          useNativeControls
-          resizeMode="contain" // ovdje kasnije možeš dodati modove (contain/cover/stretch)
+          style={{ width, height }}
+          resizeMode="contain"
+          shouldPlay   // auto play
+          useNativeControls={false}
           onError={(e) => {
             console.log("Video error:", e);
           }}
         />
       </TouchableOpacity>
 
-      <View style={{ padding: 10 }}>
-        <Text style={styles.title} numberOfLines={1}>
+      {/* Naziv kanala / epizode pri dnu */}
+      <View style={styles.titleBar}>
+        <Text style={styles.titleText} numberOfLines={1}>
           {channel.name}
         </Text>
       </View>
@@ -123,11 +113,11 @@ export default function PlayerScreen({ route, navigation }) {
           </View>
 
           <View style={styles.listContainer}>
-            <Text style={styles.listTitle}>Lista kanala</Text>
+            <Text style={styles.listTitle}>Lista</Text>
             <FlatList
               data={channelList}
-              keyExtractor={(it, idx) =>
-                (it.url || it.name || "chan") + idx
+              keyExtractor={(item, idx) =>
+                (item.url || item.name || "chan") + idx
               }
               renderItem={({ item, index: idx }) => (
                 <TouchableOpacity
@@ -142,7 +132,10 @@ export default function PlayerScreen({ route, navigation }) {
                   </Text>
                 </TouchableOpacity>
               )}
-              style={{ maxHeight: 220 }}
+              initialNumToRender={20}
+              maxToRenderPerBatch={20}
+              windowSize={5}
+              removeClippedSubviews={true}
             />
           </View>
         </View>
@@ -159,14 +152,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#000",
   },
-  title: { color: "#fff", fontSize: 18, textAlign: "center" },
+  titleBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  titleText: { color: "#fff", fontSize: 16, textAlign: "center" },
 
-  // overlay je sada manji panel, ne preko cijelog ekrana
   overlay: {
     position: "absolute",
     left: 10,
     right: 10,
-    top: 10,
+    top: 40,
+    bottom: 80,
     backgroundColor: "rgba(0,0,0,0.85)",
     padding: 10,
     borderRadius: 8,
@@ -186,7 +188,7 @@ const styles = StyleSheet.create({
 
   listContainer: {
     marginTop: 8,
-    maxHeight: 220,
+    flex: 1,
   },
   listTitle: {
     color: "#fff",

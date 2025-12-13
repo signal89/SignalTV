@@ -11,6 +11,7 @@ import HomeScreen from "./screens/HomeScreen";
 import CategoryScreen from "./screens/CategoryScreen";
 import GroupScreen from "./screens/GroupScreen";
 import PlayerScreen from "./screens/PlayerScreen";
+import SeriesScreen from "./screens/SeriesScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +45,10 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: "SignalTV" }} />
         <Stack.Screen name="Category" component={CategoryScreen} options={{ title: "Grupe" }} />
         <Stack.Screen name="Group" component={GroupScreen} options={{ title: "Kanali" }} />
+        <Stack.Screen
+           name="Series"
+           component={SeriesScreen}
+           options={{ title: "Serije" }} />
         <Stack.Screen name="Player" component={PlayerScreen} options={{ title: "Gledanje", headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>

@@ -22,11 +22,7 @@ export default function GroupScreen({ route, navigation }) {
         const res = await fetch(`${SERVER_URL}/api/channels`);
         const json = await res.json();
 
-        // KORISTI SAMO PRVU RADNU LISTU (primary_categories)
-        const source =
-          json && json.primary_categories
-            ? json.primary_categories
-            : json.categories || {};
+        const source = json && json.categories ? json.categories : {};
 
         const arr =
           source[category] && source[category][groupName]
@@ -54,7 +50,6 @@ export default function GroupScreen({ route, navigation }) {
     );
   }
 
-  // Filtrirani kanali po nazivu
   const filteredChannels = channels.filter((ch) =>
     (ch.name || "").toLowerCase().includes(search.toLowerCase())
   );
@@ -104,6 +99,10 @@ export default function GroupScreen({ route, navigation }) {
               <Text style={styles.itemText}>{item.name}</Text>
             </TouchableOpacity>
           )}
+          initialNumToRender={20}
+          maxToRenderPerBatch={20}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </View>

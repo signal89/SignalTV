@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   TextInput,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -26,13 +25,9 @@ export default function CategoryScreen({ route, navigation }) {
         const res = await fetch(`${SERVER_URL}/api/channels`);
         const json = await res.json();
 
-        // KORISTI SAMO PRVU RADNU LISTU (primary_categories)
-        const source =
-          json && json.primary_categories
-            ? json.primary_categories
-            : json.categories || {};
-
+        const source = json && json.categories ? json.categories : {};
         const catObj = source[category] ? source[category] : {};
+
         setGroups(Object.keys(catObj));
 
         const h = await AsyncStorage.getItem(`hidden_${category}`);
@@ -78,7 +73,6 @@ export default function CategoryScreen({ route, navigation }) {
     );
   }
 
-  // Filtrirane liste za prikaz
   const visibleGroups = groups.filter(
     (g) =>
       !hiddenGroups.includes(g) &&
@@ -122,16 +116,23 @@ export default function CategoryScreen({ route, navigation }) {
             onPress={() =>
               showHidden
                 ? toggleGroup(item)
-                : navigation.navigate("Group", {
-                    category,
-                    groupName: item,
-                  })
+                : navigation.navigate(
+                    category === "Serije" ? "Series" : "Group",
+                    {
+                      category,
+                      groupName: item,
+                    }
+                  )
             }
             onLongPress={() => toggleGroup(item)}
           >
             <Text style={{ color: "#fff" }}>{item}</Text>
           </TouchableOpacity>
         )}
+        initialNumToRender={20}
+        maxToRenderPerBatch={20}
+        windowSize={5}
+        removeClippedSubviews={true}
       />
 
       <TouchableOpacity
