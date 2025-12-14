@@ -21,12 +21,8 @@ export default function HomeScreen({ navigation }) {
         const res = await fetch(`${SERVER_URL}/api/channels`);
         const json = await res.json();
 
-        if (
-          json &&
-          json.categories &&
-          Object.keys(json.categories).length > 0
-        ) {
-          setCategories(Object.keys(json.categories)); // ["LiveTV","Filmovi","Serije"]
+        if (json && json.categories && Object.keys(json.categories).length > 0) {
+          setCategories(Object.keys(json.categories));
         } else {
           setCategories([]);
         }
@@ -93,6 +89,7 @@ export default function HomeScreen({ navigation }) {
             color: "white",
             textAlign: "center",
             marginTop: 20,
+            fontSize: 18,
           }}
         >
           Nema dostupnih kategorija.
@@ -114,8 +111,8 @@ const styles = StyleSheet.create({
   },
   tabBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
   tabActive: { backgroundColor: "#007AFF" },
-  tabText: { color: "#fff" },
-  tabTextActive: { color: "#000", fontWeight: "bold" },
+  tabText: { color: "#fff", fontSize: 18 },
+  tabTextActive: { color: "#000", fontWeight: "bold", fontSize: 18 },
   gridItem: {
     backgroundColor: "#007AFF",
     height: itemSize,
@@ -129,5 +126,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     textAlign: "center",
+    fontSize: 18,
   },
 });

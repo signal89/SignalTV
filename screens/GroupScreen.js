@@ -43,7 +43,7 @@ export default function GroupScreen({ route, navigation }) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={{ color: "white", marginTop: 10 }}>
+        <Text style={{ color: "white", marginTop: 10, fontSize: 18 }}>
           Učitavanje...
         </Text>
       </View>
@@ -57,7 +57,7 @@ export default function GroupScreen({ route, navigation }) {
   return (
     <View style={{ flex: 1, padding: 10, backgroundColor: "#000" }}>
       <Text
-        style={{ color: "white", fontSize: 20, marginBottom: 10 }}
+        style={{ color: "white", fontSize: 22, marginBottom: 10 }}
       >
         {groupName}
       </Text>
@@ -70,14 +70,15 @@ export default function GroupScreen({ route, navigation }) {
         style={{
           backgroundColor: "#222",
           color: "#fff",
-          padding: 8,
+          padding: 10,
           borderRadius: 8,
           marginBottom: 10,
+          fontSize: 16,
         }}
       />
 
       {filteredChannels.length === 0 ? (
-        <Text style={{ color: "white" }}>
+        <Text style={{ color: "white", fontSize: 18 }}>
           Nema kanala u ovoj grupi.
         </Text>
       ) : (
@@ -123,5 +124,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  itemText: { color: "#fff", fontSize: 16 },
+  itemText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

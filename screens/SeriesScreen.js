@@ -259,5 +259,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  itemText: { color: "#fff", fontSize: 16 },
+  itemText: { color: "#fff", fontSize: 18 },
 });

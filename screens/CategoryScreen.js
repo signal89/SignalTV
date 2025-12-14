@@ -58,7 +58,7 @@ export default function CategoryScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "white" }}>Učitavanje...</Text>
+        <Text style={{ color: "white", fontSize: 18 }}>Učitavanje...</Text>
       </View>
     );
   }
@@ -66,7 +66,7 @@ export default function CategoryScreen({ route, navigation }) {
   if (!groups.length) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "white" }}>
+        <Text style={{ color: "white", fontSize: 18 }}>
           Nema dostupnih grupa u ovoj kategoriji.
         </Text>
       </View>
@@ -88,7 +88,7 @@ export default function CategoryScreen({ route, navigation }) {
   return (
     <View style={{ flex: 1, padding: 10, backgroundColor: "#000" }}>
       <Text
-        style={{ color: "white", fontSize: 20, marginBottom: 10 }}
+        style={{ color: "white", fontSize: 22, marginBottom: 10 }}
       >
         {category}
       </Text>
@@ -101,9 +101,10 @@ export default function CategoryScreen({ route, navigation }) {
         style={{
           backgroundColor: "#222",
           color: "#fff",
-          padding: 8,
+          padding: 10,
           borderRadius: 8,
           marginBottom: 10,
+          fontSize: 16,
         }}
       />
 
@@ -118,15 +119,12 @@ export default function CategoryScreen({ route, navigation }) {
                 ? toggleGroup(item)
                 : navigation.navigate(
                     category === "Serije" ? "Series" : "Group",
-                    {
-                      category,
-                      groupName: item,
-                    }
+                    { category, groupName: item }
                   )
             }
             onLongPress={() => toggleGroup(item)}
           >
-            <Text style={{ color: "#fff" }}>{item}</Text>
+            <Text style={styles.groupText}>{item}</Text>
           </TouchableOpacity>
         )}
         initialNumToRender={20}
@@ -142,14 +140,14 @@ export default function CategoryScreen({ route, navigation }) {
         ]}
         onPress={() => setShowHidden((prev) => !prev)}
       >
-        <Text style={{ color: "#fff" }}>
+        <Text style={styles.groupText}>
           {showHidden
             ? "Prikaži vidljive grupe"
             : "Prikaži sakrivene grupe"}
         </Text>
       </TouchableOpacity>
 
-      <Text style={{ color: "white", marginTop: 10 }}>
+      <Text style={{ color: "white", marginTop: 10, fontSize: 16 }}>
         Drži grupu za sakriti/ponovo prikazati
       </Text>
     </View>
@@ -170,4 +168,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
+  groupText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

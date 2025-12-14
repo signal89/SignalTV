@@ -8,7 +8,7 @@ import {
   FlatList,
   BackHandler,
 } from "react-native";
-import { Video } from "expo-av";
+import { VideoView } from "expo-video"; // NOVO
 
 export default function PlayerScreen({ route, navigation }) {
   const { channelList = [], index = 0 } = route.params || {};
@@ -17,8 +17,8 @@ export default function PlayerScreen({ route, navigation }) {
   const videoRef = useRef(null);
 
   const channel = channelList[currentIndex];
+  const { width, height } = Dimensions.get("window");
 
-  // back dugme: prvo zatvara overlay, pa tek onda ide nazad
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
@@ -32,6 +32,12 @@ export default function PlayerScreen({ route, navigation }) {
     );
     return () => backHandler.remove();
   }, [showOverlay]);
+
+  useEffect(() => {
+    if (channel?.url) {
+      console.log("PLAY URL:", channel.url);
+    }
+  }, [channel]);
 
   const next = () => {
     if (currentIndex < channelList.length - 1) {
@@ -57,25 +63,28 @@ export default function PlayerScreen({ route, navigation }) {
     );
   }
 
-  const { width, height } = Dimensions.get("window");
-
   return (
     <View style={styles.container}>
-      {/* Puni ekran – video zauzima cijeli ekran */}
+      {/* Video preko cijelog ekrana */}
       <TouchableOpacity
         style={{ flex: 1 }}
         activeOpacity={1}
         onPress={toggleOverlay}
       >
-        <Video
+        <VideoView
           ref={videoRef}
           source={{ uri: channel.url }}
           style={{ width, height }}
-          resizeMode="contain"
-          shouldPlay   // auto play
-          useNativeControls={false}
+          contentFit="contain"
+          autoplay
+          nativeControls={false}
+          allowsFullscreen={false}
+          allowsPictureInPicture={false}
           onError={(e) => {
-            console.log("Video error:", e);
+            console.log(
+              "Video error full:",
+              JSON.stringify(e, null, 2)
+            );
           }}
         />
       </TouchableOpacity>
