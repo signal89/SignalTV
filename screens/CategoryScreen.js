@@ -11,7 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SERVER_URL } from "../config";
 
 export default function CategoryScreen({ route, navigation }) {
-  const { category } = route.params;
+  const { category, rawKeys = [] } = route.params; // category = logičko ime
   const [groups, setGroups] = useState([]);
   const [hiddenGroups, setHiddenGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,15 @@ export default function CategoryScreen({ route, navigation }) {
         const json = await res.json();
 
         const source = json && json.categories ? json.categories : {};
-        const catObj = source[category] ? source[category] : {};
+
+        // spoji sve grupe iz svih originalnih kategorija koje pripadaju ovoj logičkoj
+        const catObj = {};
+        const keysToUse = rawKeys.length ? rawKeys : [category];
+        keysToUse.forEach((key) => {
+          if (source[key]) {
+            Object.assign(catObj, source[key]);
+          }
+        });
 
         setGroups(Object.keys(catObj));
 
@@ -40,7 +48,7 @@ export default function CategoryScreen({ route, navigation }) {
       }
     };
     fetchGroups();
-  }, [category]);
+  }, [category, rawKeys]);
 
   const toggleGroup = async (grp) => {
     let newHidden = [...hiddenGroups];
@@ -58,7 +66,7 @@ export default function CategoryScreen({ route, navigation }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "white", fontSize: 18 }}>Učitavanje...</Text>
+        <Text style={styles.loadingText}>Učitavanje...</Text>
       </View>
     );
   }
@@ -66,7 +74,7 @@ export default function CategoryScreen({ route, navigation }) {
   if (!groups.length) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "white", fontSize: 18 }}>
+        <Text style={styles.loadingText}>
           Nema dostupnih grupa u ovoj kategoriji.
         </Text>
       </View>
@@ -86,26 +94,15 @@ export default function CategoryScreen({ route, navigation }) {
   );
 
   return (
-    <View style={{ flex: 1, padding: 10, backgroundColor: "#000" }}>
-      <Text
-        style={{ color: "white", fontSize: 22, marginBottom: 10 }}
-      >
-        {category}
-      </Text>
+    <View style={styles.screen}>
+      <Text style={styles.headerText}>{category}</Text>
 
       <TextInput
         value={search}
         onChangeText={setSearch}
         placeholder="Pretraga grupa..."
         placeholderTextColor="#888"
-        style={{
-          backgroundColor: "#222",
-          color: "#fff",
-          padding: 10,
-          borderRadius: 8,
-          marginBottom: 10,
-          fontSize: 16,
-        }}
+        style={styles.searchInput}
       />
 
       <FlatList
@@ -134,10 +131,7 @@ export default function CategoryScreen({ route, navigation }) {
       />
 
       <TouchableOpacity
-        style={[
-          styles.groupBtn,
-          { backgroundColor: "#444", marginTop: 10 },
-        ]}
+        style={[styles.groupBtn, styles.toggleBtn]}
         onPress={() => setShowHidden((prev) => !prev)}
       >
         <Text style={styles.groupText}>
@@ -147,7 +141,7 @@ export default function CategoryScreen({ route, navigation }) {
         </Text>
       </TouchableOpacity>
 
-      <Text style={{ color: "white", marginTop: 10, fontSize: 16 }}>
+      <Text style={styles.hintText}>
         Drži grupu za sakriti/ponovo prikazati
       </Text>
     </View>
@@ -155,12 +149,31 @@ export default function CategoryScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, padding: 10, backgroundColor: "#000" },
+
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
   },
+  loadingText: { color: "white", fontSize: 18 },
+
+  headerText: {
+    color: "white",
+    fontSize: 22,
+    marginBottom: 10,
+  },
+
+  searchInput: {
+    backgroundColor: "#222",
+    color: "#fff",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    fontSize: 16,
+  },
+
   groupBtn: {
     backgroundColor: "#007AFF",
     padding: 12,
@@ -168,5 +181,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  groupText: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  groupText: { color: "#222", fontSize: 18, fontWeight: "600" },
+
+  toggleBtn: {
+    backgroundColor: "#444",
+    marginTop: 10,
+  },
+
+  hintText: {
+    color: "white",
+    marginTop: 10,
+    fontSize: 16,
+  },
 });

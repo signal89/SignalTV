@@ -74,10 +74,17 @@ def fetch_url(url, timeout=4):  # kraći timeout da mrtve liste brže padnu
 
 def categorize_by_group_name(group_name):
     g = (group_name or "").lower()
-    if any(x in g for x in ["film", "movie", "filmovi", "movies"]):
+
+    if any(x in g for x in [
+        "film", "movie", "filmovi", "movies", "vod", "filmov", "movie "
+    ]):
         return "Filmovi"
-    if any(x in g for x in ["serij", "series", "episode", "epizod"]):
+
+    if any(x in g for x in [
+        "serij", "serije", "series", "episode", "epizod"
+    ]):
         return "Serije"
+
     return "LiveTV"
 
 

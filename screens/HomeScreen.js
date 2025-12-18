@@ -10,10 +10,33 @@ import {
 } from "react-native";
 import { SERVER_URL } from "../config";
 
+// mapira razne nazive na tri glavne kategorije
+const mapCat = (name) => {
+  const n = (name || "").toLowerCase();
+
+  // Live TV, IPTV, sl.
+  if (n.includes("live") || (n.includes("tv") && !n.includes("series"))) {
+    return "LiveTV";
+  }
+
+  // Filmovi / Movies / VOD
+  if (n.includes("film") || n.includes("movie") || n.includes("vod")) {
+    return "Filmovi";
+  }
+
+  // Serije / Series
+  if (n.includes("serije") || n.includes("series")) {
+    return "Serije";
+  }
+
+  // sve ostalo ostavi kako jest
+  return name;
+};
+
 export default function HomeScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
+  const [rawCategories, setRawCategories] = useState({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("LiveTV");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -21,14 +44,32 @@ export default function HomeScreen({ navigation }) {
         const res = await fetch(`${SERVER_URL}/api/channels`);
         const json = await res.json();
 
+        console.log("CHANNELS JSON KEYOVI:", Object.keys(json || {}));
+        console.log(
+          "CATEGORIES:",
+          json && json.categories ? Object.keys(json.categories) : "nema"
+        );
+
         if (json && json.categories && Object.keys(json.categories).length > 0) {
-          setCategories(Object.keys(json.categories));
+          const source = json.categories;
+
+          const norm = {};
+          for (const key of Object.keys(source)) {
+            const logical = mapCat(key);
+            if (!norm[logical]) norm[logical] = [];
+            norm[logical].push(key);
+          }
+
+          setRawCategories(norm);
+          setCategories(Object.keys(norm)); // npr. ["LIVE-TV","FILMOVI","SERIJE",...]
         } else {
           setCategories([]);
+          setRawCategories({});
         }
       } catch (err) {
         console.log("Greška:", err);
         setCategories([]);
+        setRawCategories({});
       } finally {
         setLoading(false);
       }
@@ -41,7 +82,10 @@ export default function HomeScreen({ navigation }) {
     <TouchableOpacity
       style={styles.gridItem}
       onPress={() =>
-        navigation.navigate("Category", { category: item, tab: activeTab })
+        navigation.navigate("Category", {
+          category: item,                    // logičko ime
+          rawKeys: rawCategories[item] || [], // originalni ključevi iz JSON-a
+        })
       }
     >
       <Text style={styles.gridText}>{item}</Text>
@@ -50,25 +94,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabRow}>
-        {["LiveTV", "Filmovi", "Serije"].map((t) => (
-          <TouchableOpacity
-            key={t}
-            onPress={() => setActiveTab(t)}
-            style={[styles.tabBtn, activeTab === t && styles.tabActive]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === t && styles.tabTextActive,
-              ]}
-            >
-              {t}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -84,16 +109,7 @@ export default function HomeScreen({ navigation }) {
           contentContainerStyle={{ padding: 10 }}
         />
       ) : (
-        <Text
-          style={{
-            color: "white",
-            textAlign: "center",
-            marginTop: 20,
-            fontSize: 18,
-          }}
-        >
-          Nema dostupnih kategorija.
-        </Text>
+        <Text style={styles.emptyText}>Nema dostupnih kategorija.</Text>
       )}
     </View>
   );
@@ -104,15 +120,14 @@ const itemSize = (width - 40) / 3;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
-  tabRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    padding: 10,
+
+  emptyText: {
+    color: "white",
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 20,
   },
-  tabBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  tabActive: { backgroundColor: "#007AFF" },
-  tabText: { color: "#fff", fontSize: 18 },
-  tabTextActive: { color: "#000", fontWeight: "bold", fontSize: 18 },
+
   gridItem: {
     backgroundColor: "#007AFF",
     height: itemSize,
@@ -123,9 +138,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   gridText: {
-    color: "#fff",
+    color: "#222",
     fontWeight: "bold",
     textAlign: "center",
-    fontSize: 18,
+    fontSize: 22,
   },
 });

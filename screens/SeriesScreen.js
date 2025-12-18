@@ -1,3 +1,4 @@
+// screens/SeriesScreen.js
 import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
@@ -10,25 +11,57 @@ import {
 } from "react-native";
 import { SERVER_URL } from "../config";
 
-// Parsiranje imena epizode serije
+// Pokušaj više formata i uvijek vratiti: show, season, episode
 function splitSeriesName(rawName) {
-  const parts = (rawName || "").split(" : ");
-  if (parts.length < 3) {
-    return { show: rawName, season: null, episode: null };
+  const name = (rawName || "").trim();
+  if (!name) {
+    return { show: "", season: null, episode: null };
   }
-  const show = parts[0]; // "Tajkun", "Juzni Vetar (2020)"...
 
-  const seasonPart = parts[1]; // "Season # 1"
-  const episodePart = parts[2]; // "Episode # 3 (....)"
+  // 1) "Ballers (2019) : Season # 3 : Episode # 5"
+  let m = name.match(
+    /(.*)\s+:\s*Season\s*#\s*(\d+)\s*:\s*Episode\s*#\s*(\d+)/i
+  );
+  if (m) {
+    return {
+      show: m[1].trim(),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+    };
+  }
 
-  const seasonMatch = seasonPart.match(/Season\s*#\s*(\d+)/i);
-  const episodeMatch = episodePart.match(/Episode\s*#\s*(\d+)/i);
+  // 2) "El Chapo S01 E05" ili "El Chapo S1 E5"
+  m = name.match(/(.*)\s+S(\d{1,2})\s*E(\d{1,2})/i);
+  if (m) {
+    return {
+      show: m[1].trim(),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+    };
+  }
 
-  return {
-    show,
-    season: seasonMatch ? Number(seasonMatch[1]) : null,
-    episode: episodeMatch ? Number(episodeMatch[1]) : null,
-  };
+  // 3) "Naziv Sezona 1 Epizoda 5"
+  m = name.match(/(.*)\s+Sezona\s+(\d{1,2})\s+Epizoda\s+(\d{1,2})/i);
+  if (m) {
+    return {
+      show: m[1].trim(),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+    };
+  }
+
+  // 4) "Naziv Season 1 Episode 5"
+  m = name.match(/(.*)\s+Season\s+(\d{1,2})\s+Episode\s+(\d{1,2})/i);
+  if (m) {
+    return {
+      show: m[1].trim(),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+    };
+  }
+
+  // Ako nijedan format nije pogođen – sve tretiraj kao naziv serije
+  return { show: name, season: null, episode: null };
 }
 
 export default function SeriesScreen({ route, navigation }) {
@@ -37,9 +70,11 @@ export default function SeriesScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const [level, setLevel] = useState("shows"); // "shows" | "seasons" | "episodes"
+  // shows | seasons | episodes
+  const [level, setLevel] = useState("shows");
   const [selectedShow, setSelectedShow] = useState(null);
   const [selectedSeason, setSelectedSeason] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(-1);
 
   useEffect(() => {
     const fetchGroupItems = async () => {
@@ -63,23 +98,26 @@ export default function SeriesScreen({ route, navigation }) {
     fetchGroupItems();
   }, [category, groupName]);
 
-  // reset na promjeni grupe
+  // reset kad promijeniš grupu
   useEffect(() => {
     setLevel("shows");
     setSelectedShow(null);
     setSelectedSeason(null);
     setSearch("");
+    setCurrentIndex(-1);
   }, [category, groupName]);
 
+  // kanali + meta info
   const parsedSeries = useMemo(() => {
     return channels
       .map((ch) => {
         const meta = splitSeriesName(ch.name);
         return { ...ch, ...meta };
       })
-      .filter((ch) => ch.show); // samo oni s imenom
+      .filter((ch) => ch.show);
   }, [channels]);
 
+  // 1) lista serija
   const seriesShows = useMemo(() => {
     const map = new Map();
     for (const ch of parsedSeries) {
@@ -100,6 +138,7 @@ export default function SeriesScreen({ route, navigation }) {
     return list;
   }, [parsedSeries, search]);
 
+  // 2) lista sezona za izabranu seriju
   const seriesSeasons = useMemo(() => {
     if (!selectedShow) return [];
     const set = new Set();
@@ -118,6 +157,7 @@ export default function SeriesScreen({ route, navigation }) {
     return list;
   }, [parsedSeries, selectedShow, search]);
 
+  // 3) lista epizoda u izabranoj sezoni
   const seriesEpisodes = useMemo(() => {
     if (!selectedShow || selectedSeason == null) return [];
     let list = parsedSeries.filter(
@@ -136,9 +176,7 @@ export default function SeriesScreen({ route, navigation }) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={{ color: "white", marginTop: 10 }}>
-          Učitavanje...
-        </Text>
+        <Text style={styles.loadingText}>Učitavanje...</Text>
       </View>
     );
   }
@@ -155,10 +193,14 @@ export default function SeriesScreen({ route, navigation }) {
 
   if (level === "shows") {
     dataToRender = seriesShows;
-    renderItemFn = ({ item }) => (
+    renderItemFn = ({ item, index }) => (
       <TouchableOpacity
-        style={styles.itemBtn}
+        style={[
+          styles.itemBtn,
+          index === currentIndex && styles.itemBtnActive,
+        ]}
         onPress={() => {
+          setCurrentIndex(index);
           setSelectedShow(item.show);
           setLevel("seasons");
           setSearch("");
@@ -169,10 +211,14 @@ export default function SeriesScreen({ route, navigation }) {
     );
   } else if (level === "seasons") {
     dataToRender = seriesSeasons;
-    renderItemFn = ({ item }) => (
+    renderItemFn = ({ item, index }) => (
       <TouchableOpacity
-        style={styles.itemBtn}
+        style={[
+          styles.itemBtn,
+          index === currentIndex && styles.itemBtnActive,
+        ]}
         onPress={() => {
+          setCurrentIndex(index);
           setSelectedSeason(item);
           setLevel("episodes");
           setSearch("");
@@ -185,13 +231,17 @@ export default function SeriesScreen({ route, navigation }) {
     dataToRender = seriesEpisodes;
     renderItemFn = ({ item, index }) => (
       <TouchableOpacity
-        style={styles.itemBtn}
-        onPress={() =>
+        style={[
+          styles.itemBtn,
+          index === currentIndex && styles.itemBtnActive,
+        ]}
+        onPress={() => {
+          setCurrentIndex(index);
           navigation.navigate("Player", {
             channelList: seriesEpisodes,
             index,
-          })
-        }
+          });
+        }}
       >
         <Text style={styles.itemText}>
           {item.name || `Epizoda ${item.episode || ""}`}
@@ -201,12 +251,8 @@ export default function SeriesScreen({ route, navigation }) {
   }
 
   return (
-    <View style={{ flex: 1, padding: 10, backgroundColor: "#000" }}>
-      <Text
-        style={{ color: "white", fontSize: 20, marginBottom: 10 }}
-      >
-        {title}
-      </Text>
+    <View style={styles.screen}>
+      <Text style={styles.headerText}>{title}</Text>
 
       <TextInput
         value={search}
@@ -219,19 +265,11 @@ export default function SeriesScreen({ route, navigation }) {
             : "Pretraga epizoda..."
         }
         placeholderTextColor="#888"
-        style={{
-          backgroundColor: "#222",
-          color: "#fff",
-          padding: 8,
-          borderRadius: 8,
-          marginBottom: 10,
-        }}
+        style={styles.searchInput}
       />
 
       {dataToRender.length === 0 ? (
-        <Text style={{ color: "white" }}>
-          Nema stavki za prikaz.
-        </Text>
+        <Text style={styles.emptyText}>Nema stavki za prikaz.</Text>
       ) : (
         <FlatList
           data={dataToRender}
@@ -246,18 +284,45 @@ export default function SeriesScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, padding: 10, backgroundColor: "#000" },
+
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
   },
+  loadingText: { color: "white", marginTop: 10, fontSize: 18 },
+
+  headerText: {
+    color: "white",
+    fontSize: 22,
+    marginBottom: 10,
+  },
+
+  searchInput: {
+    backgroundColor: "#222",
+    color: "#fff",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    fontSize: 16,
+  },
+
+  emptyText: { color: "white", fontSize: 18 },
+
   itemBtn: {
     backgroundColor: "#007AFF",
     padding: 12,
     marginVertical: 6,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
   },
-  itemText: { color: "#fff", fontSize: 18 },
+  itemBtnActive: {
+    backgroundColor: "#555",
+    borderColor: "#ffffff",
+  },
+  itemText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

@@ -1,3 +1,4 @@
+// screens/ModeScreen.js
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -13,7 +14,7 @@ export default function ModeScreen({ navigation }) {
     }
   };
 
-  const { width } = Dimensions.get("window");
+  const width = Dimensions.get("window").width;
   const btnWidth = width - 80;
 
   return (
@@ -53,7 +54,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 80,
   },
-  title: { color: "#fff", fontSize: 26, marginBottom: 30 },
+  title: {
+    color: "#fff",
+    fontSize: 22,
+    marginBottom: 30,
+  },
   btn: {
     backgroundColor: "#007AFF",
     padding: 14,
@@ -61,12 +66,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
-  btnText: { color: "#fff", fontSize: 20, fontWeight: "bold" },
+  btnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
   hint: {
     color: "#999",
     marginTop: 20,
     textAlign: "center",
     paddingHorizontal: 20,
-    fontSize: 16,
   },
 });

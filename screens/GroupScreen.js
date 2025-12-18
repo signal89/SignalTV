@@ -15,6 +15,7 @@ export default function GroupScreen({ route, navigation }) {
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(-1); // za highlight
 
   useEffect(() => {
     const fetchGroupItems = async () => {
@@ -43,9 +44,7 @@ export default function GroupScreen({ route, navigation }) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#fff" />
-        <Text style={{ color: "white", marginTop: 10, fontSize: 18 }}>
-          Učitavanje...
-        </Text>
+        <Text style={styles.loadingText}>Učitavanje...</Text>
       </View>
     );
   }
@@ -54,31 +53,28 @@ export default function GroupScreen({ route, navigation }) {
     (ch.name || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const handlePress = (index) => {
+    setCurrentIndex(index);
+    navigation.navigate("Player", {
+      channelList: filteredChannels,
+      index,
+    });
+  };
+
   return (
-    <View style={{ flex: 1, padding: 10, backgroundColor: "#000" }}>
-      <Text
-        style={{ color: "white", fontSize: 22, marginBottom: 10 }}
-      >
-        {groupName}
-      </Text>
+    <View style={styles.screen}>
+      <Text style={styles.headerText}>{groupName}</Text>
 
       <TextInput
         value={search}
         onChangeText={setSearch}
         placeholder="Pretraga kanala..."
         placeholderTextColor="#888"
-        style={{
-          backgroundColor: "#222",
-          color: "#fff",
-          padding: 10,
-          borderRadius: 8,
-          marginBottom: 10,
-          fontSize: 16,
-        }}
+        style={styles.searchInput}
       />
 
       {filteredChannels.length === 0 ? (
-        <Text style={{ color: "white", fontSize: 18 }}>
+        <Text style={styles.emptyText}>
           Nema kanala u ovoj grupi.
         </Text>
       ) : (
@@ -89,13 +85,11 @@ export default function GroupScreen({ route, navigation }) {
           }
           renderItem={({ item, index }) => (
             <TouchableOpacity
-              style={styles.itemBtn}
-              onPress={() =>
-                navigation.navigate("Player", {
-                  channelList: filteredChannels,
-                  index,
-                })
-              }
+              style={[
+                styles.itemBtn,
+                index === currentIndex && styles.itemBtnActive,
+              ]}
+              onPress={() => handlePress(index)}
             >
               <Text style={styles.itemText}>{item.name}</Text>
             </TouchableOpacity>
@@ -111,18 +105,45 @@ export default function GroupScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, padding: 10, backgroundColor: "#000" },
+
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
   },
+  loadingText: { color: "white", marginTop: 10, fontSize: 18 },
+
+  headerText: {
+    color: "white",
+    fontSize: 22,
+    marginBottom: 10,
+  },
+
+  searchInput: {
+    backgroundColor: "#222",
+    color: "#fff",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    fontSize: 16,
+  },
+
+  emptyText: { color: "white", fontSize: 18 },
+
   itemBtn: {
     backgroundColor: "#007AFF",
     padding: 12,
     marginVertical: 6,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  itemBtnActive: {
+    backgroundColor: "#555",   // tamno siva kad si na tom kanalu
+    borderColor: "#ffffff",    // bijeli okvir da se vidi
   },
   itemText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

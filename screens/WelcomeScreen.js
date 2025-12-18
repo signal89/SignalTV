@@ -1,3 +1,4 @@
+// screens/WelcomeScreen.js
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
@@ -6,7 +7,7 @@ export default function WelcomeScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>Dobrodošli u SignalTV</Text>
       <Text style={styles.subtitle}>
-        Jednom izaberi uređaj — sljedeći put ide direktno na aplikaciju.
+        Jednom izaberi uređaj, sljedeći put ide direktno na aplikaciju.
       </Text>
       <TouchableOpacity
         style={styles.btn}
@@ -26,13 +27,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-  title: { color: "#fff", fontSize: 30, marginBottom: 8 },
+  title: {
+    color: "#fff",
+    fontSize: 26,
+    marginBottom: 8,
+  },
   subtitle: {
     color: "#aaa",
     textAlign: "center",
     marginBottom: 24,
-    fontSize: 18,
   },
-  btn: { backgroundColor: "#007AFF", padding: 16, borderRadius: 10 },
-  btnText: { color: "#fff", fontWeight: "bold", fontSize: 20 },
+  btn: {
+    backgroundColor: "#007AFF",
+    padding: 14,
+    borderRadius: 10,
+  },
+  btnText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });
