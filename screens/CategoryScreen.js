@@ -1,3 +1,4 @@
+// screens/CategoryScreen.js
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -18,6 +19,7 @@ export default function CategoryScreen({ route, navigation }) {
 
   const [search, setSearch] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -93,6 +95,8 @@ export default function CategoryScreen({ route, navigation }) {
       g.toLowerCase().includes(search.toLowerCase())
   );
 
+  const listData = showHidden ? hiddenOnly : visibleGroups;
+
   return (
     <View style={styles.screen}>
       <Text style={styles.headerText}>{category}</Text>
@@ -106,11 +110,17 @@ export default function CategoryScreen({ route, navigation }) {
       />
 
       <FlatList
-        data={showHidden ? hiddenOnly : visibleGroups}
+        data={listData}
         keyExtractor={(item) => item}
-        renderItem={({ item }) => (
+        extraData={focusedIndex}
+        renderItem={({ item, index }) => (
           <TouchableOpacity
-            style={styles.groupBtn}
+            focusable={true}
+            onFocus={() => setFocusedIndex(index)}
+            style={[
+              styles.groupBtn,
+              index === focusedIndex && styles.groupBtnFocused,
+            ]}
             onPress={() =>
               showHidden
                 ? toggleGroup(item)
@@ -180,6 +190,11 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     borderRadius: 8,
     alignItems: "center",
+  },
+  groupBtnFocused: {
+    backgroundColor: "#1e90ff",
+    borderWidth: 2,
+    borderColor: "#fff",
   },
   groupText: { color: "#222", fontSize: 18, fontWeight: "600" },
 

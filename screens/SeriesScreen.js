@@ -75,6 +75,7 @@ export default function SeriesScreen({ route, navigation }) {
   const [selectedShow, setSelectedShow] = useState(null);
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   useEffect(() => {
     const fetchGroupItems = async () => {
@@ -105,6 +106,7 @@ export default function SeriesScreen({ route, navigation }) {
     setSelectedSeason(null);
     setSearch("");
     setCurrentIndex(-1);
+    setFocusedIndex(0);
   }, [category, groupName]);
 
   // kanali + meta info
@@ -195,15 +197,19 @@ export default function SeriesScreen({ route, navigation }) {
     dataToRender = seriesShows;
     renderItemFn = ({ item, index }) => (
       <TouchableOpacity
+        focusable={true}
+        onFocus={() => setFocusedIndex(index)}
         style={[
           styles.itemBtn,
           index === currentIndex && styles.itemBtnActive,
+          index === focusedIndex && styles.itemBtnFocused,
         ]}
         onPress={() => {
           setCurrentIndex(index);
           setSelectedShow(item.show);
           setLevel("seasons");
           setSearch("");
+          setFocusedIndex(0);
         }}
       >
         <Text style={styles.itemText}>{item.show}</Text>
@@ -213,15 +219,19 @@ export default function SeriesScreen({ route, navigation }) {
     dataToRender = seriesSeasons;
     renderItemFn = ({ item, index }) => (
       <TouchableOpacity
+        focusable={true}
+        onFocus={() => setFocusedIndex(index)}
         style={[
           styles.itemBtn,
           index === currentIndex && styles.itemBtnActive,
+          index === focusedIndex && styles.itemBtnFocused,
         ]}
         onPress={() => {
           setCurrentIndex(index);
           setSelectedSeason(item);
           setLevel("episodes");
           setSearch("");
+          setFocusedIndex(0);
         }}
       >
         <Text style={styles.itemText}>{`Sezona ${item}`}</Text>
@@ -231,11 +241,15 @@ export default function SeriesScreen({ route, navigation }) {
     dataToRender = seriesEpisodes;
     renderItemFn = ({ item, index }) => (
       <TouchableOpacity
+        focusable={true}
+        onFocus={() => setFocusedIndex(index)}
         style={[
           styles.itemBtn,
           index === currentIndex && styles.itemBtnActive,
+          index === focusedIndex && styles.itemBtnFocused,
         ]}
         onPress={() => {
+          console.log("CLICKED EPISODE:", item.name, item.url);
           setCurrentIndex(index);
           navigation.navigate("Player", {
             channelList: seriesEpisodes,
@@ -276,6 +290,7 @@ export default function SeriesScreen({ route, navigation }) {
           keyExtractor={(item, idx) =>
             (item.url || item.name || String(item) || "row") + idx
           }
+          extraData={{ currentIndex, focusedIndex, level }}
           renderItem={renderItemFn}
         />
       )}
@@ -322,6 +337,8 @@ const styles = StyleSheet.create({
   },
   itemBtnActive: {
     backgroundColor: "#555",
+  },
+  itemBtnFocused: {
     borderColor: "#ffffff",
   },
   itemText: { color: "#fff", fontSize: 18, fontWeight: "600" },

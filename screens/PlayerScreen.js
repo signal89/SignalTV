@@ -14,6 +14,7 @@ import { Video, ResizeMode } from "expo-av";
 export default function PlayerScreen({ route, navigation }) {
   const { channelList = [], index = 0 } = route.params || {};
   const [currentIndex, setCurrentIndex] = useState(index);
+  const [focusedIndex, setFocusedIndex] = useState(index);
   const videoRef = useRef(null);
 
   const channel = channelList[currentIndex];
@@ -46,12 +47,14 @@ export default function PlayerScreen({ route, navigation }) {
   const next = () => {
     if (currentIndex < channelList.length - 1) {
       setCurrentIndex((i) => i + 1);
+      setFocusedIndex((i) => Math.min(i + 1, channelList.length - 1));
     }
   };
 
   const prev = () => {
     if (currentIndex > 0) {
       setCurrentIndex((i) => i - 1);
+      setFocusedIndex((i) => Math.max(i - 1, 0));
     }
   };
 
@@ -101,13 +104,20 @@ export default function PlayerScreen({ route, navigation }) {
         keyExtractor={(item, idx) =>
           (item.url || item.name || "chan") + idx
         }
+        extraData={{ currentIndex, focusedIndex }}
         renderItem={({ item, index: idx }) => (
           <TouchableOpacity
+            focusable={true}
+            onFocus={() => setFocusedIndex(idx)}
             style={[
               styles.listItem,
               idx === currentIndex && styles.listItemActive,
+              idx === focusedIndex && styles.listItemFocused,
             ]}
-            onPress={() => setCurrentIndex(idx)}
+            onPress={() => {
+              console.log("CLICKED IN PLAYER:", item.name, item.url);
+              setCurrentIndex(idx);
+            }}
           >
             <Text style={styles.listText} numberOfLines={1}>
               {item.name}
@@ -157,10 +167,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginVertical: 3,
     backgroundColor: "#222",
+    borderWidth: 2,
+    borderColor: "transparent",
   },
   listItemActive: {
     backgroundColor: "#555",
-    borderWidth: 2,
+  },
+  listItemFocused: {
     borderColor: "#fff",
   },
   listText: { color: "#fff", fontSize: 16 },

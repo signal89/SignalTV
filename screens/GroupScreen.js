@@ -1,3 +1,4 @@
+// screens/GroupScreen.js
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -15,7 +16,8 @@ export default function GroupScreen({ route, navigation }) {
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [currentIndex, setCurrentIndex] = useState(-1); // za highlight
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   useEffect(() => {
     const fetchGroupItems = async () => {
@@ -54,6 +56,8 @@ export default function GroupScreen({ route, navigation }) {
   );
 
   const handlePress = (index) => {
+    const ch = filteredChannels[index];
+    console.log("CLICKED CHANNEL:", ch?.name, ch?.url);
     setCurrentIndex(index);
     navigation.navigate("Player", {
       channelList: filteredChannels,
@@ -74,20 +78,22 @@ export default function GroupScreen({ route, navigation }) {
       />
 
       {filteredChannels.length === 0 ? (
-        <Text style={styles.emptyText}>
-          Nema kanala u ovoj grupi.
-        </Text>
+        <Text style={styles.emptyText}>Nema kanala u ovoj grupi.</Text>
       ) : (
         <FlatList
           data={filteredChannels}
           keyExtractor={(item, idx) =>
             (item.url || item.name || "chan") + idx
           }
+          extraData={{ currentIndex, focusedIndex }}
           renderItem={({ item, index }) => (
             <TouchableOpacity
+              focusable={true}
+              onFocus={() => setFocusedIndex(index)}
               style={[
                 styles.itemBtn,
                 index === currentIndex && styles.itemBtnActive,
+                index === focusedIndex && styles.itemBtnFocused,
               ]}
               onPress={() => handlePress(index)}
             >
@@ -142,8 +148,10 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   itemBtnActive: {
-    backgroundColor: "#555",   // tamno siva kad si na tom kanalu
-    borderColor: "#ffffff",    // bijeli okvir da se vidi
+    backgroundColor: "#555",
+  },
+  itemBtnFocused: {
+    borderColor: "#ffffff",
   },
   itemText: { color: "#fff", fontSize: 18, fontWeight: "600" },
 });

@@ -1,3 +1,4 @@
+// screens/HomeScreen.js
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -37,6 +38,7 @@ export default function HomeScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [rawCategories, setRawCategories] = useState({});
   const [loading, setLoading] = useState(true);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -61,7 +63,7 @@ export default function HomeScreen({ navigation }) {
           }
 
           setRawCategories(norm);
-          setCategories(Object.keys(norm)); // npr. ["LIVE-TV","FILMOVI","SERIJE",...]
+          setCategories(Object.keys(norm));
         } else {
           setCategories([]);
           setRawCategories({});
@@ -78,12 +80,21 @@ export default function HomeScreen({ navigation }) {
     fetchData();
   }, []);
 
-  const renderItem = ({ item }) => (
+  const { width } = Dimensions.get("window");
+  const itemSize = (width - 40) / 3;
+
+  const renderItem = ({ item, index }) => (
     <TouchableOpacity
-      style={styles.gridItem}
+      focusable={true}
+      onFocus={() => setFocusedIndex(index)}
+      style={[
+        styles.gridItem,
+        index === focusedIndex && styles.gridItemFocused,
+        { height: itemSize, width: itemSize },
+      ]}
       onPress={() =>
         navigation.navigate("Category", {
-          category: item,                    // logičko ime
+          category: item, // logičko ime
           rawKeys: rawCategories[item] || [], // originalni ključevi iz JSON-a
         })
       }
@@ -106,6 +117,7 @@ export default function HomeScreen({ navigation }) {
           renderItem={renderItem}
           keyExtractor={(item) => item}
           numColumns={3}
+          extraData={focusedIndex}
           contentContainerStyle={{ padding: 10 }}
         />
       ) : (
@@ -115,9 +127,6 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-const { width } = Dimensions.get("window");
-const itemSize = (width - 40) / 3;
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
 
@@ -125,22 +134,26 @@ const styles = StyleSheet.create({
     color: "white",
     textAlign: "center",
     marginTop: 20,
-    fontSize: 20,
+    fontSize: 18,
   },
 
   gridItem: {
     backgroundColor: "#007AFF",
-    height: itemSize,
-    width: itemSize,
     margin: 5,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  gridItemFocused: {
+    borderColor: "#fff",
+    backgroundColor: "#1e90ff",
   },
   gridText: {
     color: "#222",
     fontWeight: "bold",
     textAlign: "center",
-    fontSize: 22,
+    fontSize: 20,
   },
 });
