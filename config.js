@@ -1,7 +1,7 @@
 // config.js
 
 // Lokalni Flask server (kad razvijaš i testiraš preko Expo Go)
-const LOCAL_IP = "http://192.168.0.106:5000";
+const LOCAL_IP = "http://192.168.177.160:5000";
 
 // Online server na Renderu – koristi se u APK-u i kad je app u production modu
 const ONLINE_URL = "https://signaltv.onrender.com";

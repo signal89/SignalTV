@@ -17,7 +17,16 @@ export default function PlayerScreen({ route, navigation }) {
   const [focusedIndex, setFocusedIndex] = useState(index);
   const videoRef = useRef(null);
 
-  const channel = channelList[currentIndex];
+  const realChannel = channelList[currentIndex];
+
+  // TEST fallback kanal – da vidimo radi li player u APK-u
+  const fallbackChannel = {
+    name: "Test video",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+  };
+
+  const channel = realChannel || fallbackChannel;
+
   const { width } = Dimensions.get("window");
   const videoHeight = (width * 9) / 16;
 
@@ -32,18 +41,8 @@ export default function PlayerScreen({ route, navigation }) {
     return () => backHandler.remove();
   }, [navigation]);
 
-  useEffect(() => {
-    if (channel?.url) {
-      console.log("PLAY URL:", channel.url);
-      videoRef.current?.stopAsync?.();
-      videoRef.current?.loadAsync(
-        { uri: channel.url },
-        { shouldPlay: true },
-        false
-      );
-    }
-  }, [channel]);
-
+  // NEMA više ručnog loadAsync – samo source + key + shouldPlay
+  // ovo je najstabilnije u dev i u APK-u
   const next = () => {
     if (currentIndex < channelList.length - 1) {
       setCurrentIndex((i) => i + 1);
@@ -69,6 +68,7 @@ export default function PlayerScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Video
+        key={channel.url}                // forsira reload kad se promijeni URL
         ref={videoRef}
         style={{ width, height: videoHeight }}
         resizeMode={ResizeMode.CONTAIN}
@@ -117,6 +117,7 @@ export default function PlayerScreen({ route, navigation }) {
             onPress={() => {
               console.log("CLICKED IN PLAYER:", item.name, item.url);
               setCurrentIndex(idx);
+              setFocusedIndex(idx);
             }}
           >
             <Text style={styles.listText} numberOfLines={1}>
