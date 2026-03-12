@@ -17,9 +17,10 @@ export default function PlayerScreen({ route, navigation }) {
   const [focusedIndex, setFocusedIndex] = useState(index);
   const videoRef = useRef(null);
 
+  // kanal iz liste
   const realChannel = channelList[currentIndex];
 
-  // TEST fallback kanal – da vidimo radi li player u APK-u
+  // fallback test video, ako iz bilo kog razloga nema realChannel
   const fallbackChannel = {
     name: "Test video",
     url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
@@ -41,8 +42,6 @@ export default function PlayerScreen({ route, navigation }) {
     return () => backHandler.remove();
   }, [navigation]);
 
-  // NEMA više ručnog loadAsync – samo source + key + shouldPlay
-  // ovo je najstabilnije u dev i u APK-u
   const next = () => {
     if (currentIndex < channelList.length - 1) {
       setCurrentIndex((i) => i + 1);
@@ -68,7 +67,7 @@ export default function PlayerScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Video
-        key={channel.url}                // forsira reload kad se promijeni URL
+        key={channel.url}                   // reload kad se promijeni URL
         ref={videoRef}
         style={{ width, height: videoHeight }}
         resizeMode={ResizeMode.CONTAIN}
@@ -140,14 +139,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   emptyText: { color: "#fff", fontSize: 18 },
-
   title: {
     color: "#fff",
     fontSize: 20,
     textAlign: "center",
     marginTop: 6,
   },
-
   controlsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -162,7 +159,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ctrlText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-
   listItem: {
     padding: 10,
     borderRadius: 6,

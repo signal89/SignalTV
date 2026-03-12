@@ -1,5 +1,5 @@
-Lista 1 | http://s1.stealtnet.com:80/get.php?username=11StancicSlavisa&password=FkLjwFQSOA&type=m3u_plus
-Lista 2 | http://tv.motv.club/playlist/MarkoCoric1/CoricMarko1/m3u_plus
+Lista 1 | http://localiptv.site/get.php?username=PromaciosTelegram&password=VyjUvxQcbcNJ&type=m3u_plus&output=ts
+Lista 2 | http://webstar-ks.ch:8080/get.php?username=Milano.absolut&password=an8nWqr6cc&type=m3u_plus
 Lista 3 | http://crnaudovica.xyz:8000/get.php?username=duskor&password=98713270388&type=m3u_plus
 Lista 4 | http://v2pro.online:8080/get.php?username=Branimir_Tolic&password=Tolic_Branimir&type=m3u
 Lista 5 | http://cistakosuza.petica.info/get.php?username=Simicbrat1&password=gPWC20&type=m3u_plus
