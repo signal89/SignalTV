@@ -8,6 +8,7 @@ import {
   Dimensions,
   FlatList,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { SERVER_URL } from "../config";
 
@@ -15,22 +16,18 @@ import { SERVER_URL } from "../config";
 const mapCat = (name) => {
   const n = (name || "").toLowerCase();
 
-  // Live TV, IPTV, sl.
   if (n.includes("live") || (n.includes("tv") && !n.includes("series"))) {
     return "LiveTV";
   }
 
-  // Filmovi / Movies / VOD
   if (n.includes("film") || n.includes("movie") || n.includes("vod")) {
     return "Filmovi";
   }
 
-  // Serije / Series
   if (n.includes("serije") || n.includes("series")) {
     return "Serije";
   }
 
-  // sve ostalo ostavi kako jest
   return name;
 };
 
@@ -81,44 +78,54 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const { width } = Dimensions.get("window");
-  const itemSize = (width - 40) / 3;
+  const isTvLike = Platform.isTV || width >= 900;
+  const numColumns = isTvLike ? 4 : 3;
+  const itemSize = (width - 20 - numColumns * 10) / numColumns;
 
-  const renderItem = ({ item, index }) => (
-    <TouchableOpacity
-      focusable={true}
-      onFocus={() => setFocusedIndex(index)}
-      style={[
-        styles.gridItem,
-        index === focusedIndex && styles.gridItemFocused,
-        { height: itemSize, width: itemSize },
-      ]}
-      onPress={() =>
-        navigation.navigate("Category", {
-          category: item, // logičko ime
-          rawKeys: rawCategories[item] || [], // originalni ključevi iz JSON-a
-        })
-      }
-    >
-      <Text style={styles.gridText}>{item}</Text>
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item, index }) => {
+    const focused = index === focusedIndex;
+
+    return (
+      <TouchableOpacity
+        focusable={true}
+        activeOpacity={0.85}
+        hasTVPreferredFocus={index === 0}
+        onFocus={() => setFocusedIndex(index)}
+        style={[
+          styles.gridItem,
+          { height: itemSize, width: itemSize },
+          focused && styles.gridItemFocused,
+        ]}
+        onPress={() =>
+          navigation.navigate("Category", {
+            category: item,
+            rawKeys: rawCategories[item] || [],
+          })
+        }
+      >
+        <Text style={[styles.gridText, focused && styles.gridTextFocused]}>
+          {item}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#007AFF"
-          style={{ marginTop: 20 }}
-        />
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color="#FFD700" />
+          <Text style={styles.loadingText}>Učitavanje kategorija...</Text>
+        </View>
       ) : categories.length > 0 ? (
         <FlatList
           data={categories}
           renderItem={renderItem}
           keyExtractor={(item) => item}
-          numColumns={3}
+          numColumns={numColumns}
           extraData={focusedIndex}
-          contentContainerStyle={{ padding: 10 }}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       ) : (
         <Text style={styles.emptyText}>Nema dostupnih kategorija.</Text>
@@ -128,10 +135,29 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+
+  listContent: {
+    padding: 10,
+  },
+
+  loaderWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  loadingText: {
+    color: "#fff",
+    marginTop: 12,
+    fontSize: 18,
+  },
 
   emptyText: {
-    color: "white",
+    color: "#fff",
     textAlign: "center",
     marginTop: 20,
     fontSize: 18,
@@ -142,18 +168,28 @@ const styles = StyleSheet.create({
     margin: 5,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: "transparent",
+    paddingHorizontal: 8,
   },
+
   gridItemFocused: {
-    borderColor: "#fff",
-    backgroundColor: "#1e90ff",
+    borderColor: "#FFD700",
+    borderWidth: 4,
+    backgroundColor: "#1565C0",
+    transform: [{ scale: 1.08 }],
   },
+
   gridText: {
-    color: "#222",
+    color: "#fff",
     fontWeight: "bold",
     textAlign: "center",
     fontSize: 20,
+  },
+
+  gridTextFocused: {
+    color: "#FFD700",
+    fontSize: 22,
   },
 });

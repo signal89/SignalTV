@@ -1,14 +1,12 @@
 from flask import Flask, jsonify, send_from_directory
 import requests, time, os, re
-from concurrent.futures import ThreadPoolExecutor
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Omogućava pristup sa Expo app-a
+CORS(app)
 
 LISTS_FILE = "lists.txt"
-CACHE_DURATION = 300  # 5 minuta
-MAX_WORKERS = 4
+CACHE_DURATION = 300
 
 cache = {"data": None, "timestamp": 0}
 
@@ -17,17 +15,25 @@ def load_lists():
     lists = []
     if not os.path.exists(LISTS_FILE):
         return lists
+
     with open(LISTS_FILE, "r", encoding="utf-8") as f:
         for i, line in enumerate(f, 1):
             line = line.strip()
             if not line:
                 continue
+
             if "|" in line:
                 name, url = line.split("|", 1)
             else:
                 name = f"Lista {i}"
                 url = line
-            lists.append({"id": i, "name": name.strip(), "url": url.strip()})
+
+            lists.append({
+                "id": i,
+                "name": name.strip(),
+                "url": url.strip()
+            })
+
     return lists
 
 
@@ -38,10 +44,12 @@ def quick_parse_for_status(text):
 def parse_m3u_text(text):
     streams = {}
     cur_name, cur_group, cur_logo = None, "Ostalo", None
+
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
             continue
+
         if line.startswith("#EXTINF"):
             m_name = re.search(r",\s*(.+)$", line)
             cur_name = m_name.group(1).strip() if m_name else None
@@ -51,7 +59,8 @@ def parse_m3u_text(text):
 
             ml = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
             cur_logo = ml.group(1).strip() if ml else None
-        elif line.startswith(("http", "udp://", "rtmp")):
+
+        elif line.startswith(("http", "https", "udp://", "rtmp")):
             if cur_name:
                 streams[cur_name] = {
                     "url": line,
@@ -59,17 +68,47 @@ def parse_m3u_text(text):
                     "logo": cur_logo,
                 }
             cur_name, cur_group, cur_logo = None, "Ostalo", None
+
     return streams
 
 
-def fetch_url(url, timeout=4):  # kraći timeout da mrtve liste brže padnu
+def fetch_playlist(url, timeout=6):
     try:
-        r = requests.get(url, timeout=timeout)
+        r = requests.get(url, timeout=timeout, allow_redirects=True)
         if r.status_code == 200 and quick_parse_for_status(r.text):
             return True, r.text
         return False, None
     except Exception:
         return False, None
+
+
+def test_stream_url(url, timeout=5):
+    try:
+        r = requests.get(url, stream=True, timeout=timeout, allow_redirects=True)
+        code = r.status_code
+        r.close()
+        return code in (200, 206)
+    except Exception:
+        return False
+
+
+def is_playlist_usable(parsed_streams, sample_size=5):
+    urls = []
+    for _, info in parsed_streams.items():
+        u = info.get("url")
+        if u and u.startswith(("http://", "https://")):
+            urls.append(u)
+        if len(urls) >= sample_size:
+            break
+
+    if not urls:
+        return False
+
+    for u in urls:
+        if test_stream_url(u):
+            return True
+
+    return False
 
 
 def categorize_by_group_name(group_name):
@@ -88,65 +127,96 @@ def categorize_by_group_name(group_name):
     return "LiveTV"
 
 
-def test_all_lists(lists):
-    status = []
+def build_channels_structure(lists):
+    statuses = []
+    selected_list = None
+    selected_streams = {}
 
-    def check(l):
-        ok, _ = fetch_url(l["url"])
-        return {
+    for l in lists:
+        ok, txt = fetch_playlist(l["url"])
+
+        if not ok or not txt:
+            statuses.append({
+                "id": l["id"],
+                "name": l["name"],
+                "url": l["url"],
+                "status": "fail",
+                "reason": "playlist_unreachable"
+            })
+            continue
+
+        parsed = parse_m3u_text(txt)
+
+        if not parsed:
+            statuses.append({
+                "id": l["id"],
+                "name": l["name"],
+                "url": l["url"],
+                "status": "fail",
+                "reason": "playlist_empty"
+            })
+            continue
+
+        usable = is_playlist_usable(parsed, sample_size=5)
+
+        if not usable:
+            statuses.append({
+                "id": l["id"],
+                "name": l["name"],
+                "url": l["url"],
+                "status": "fail",
+                "reason": "streams_unusable"
+            })
+            continue
+
+        selected_list = l
+        selected_streams = parsed
+        statuses.append({
             "id": l["id"],
             "name": l["name"],
             "url": l["url"],
-            "status": "ok" if ok else "fail",
+            "status": "ok",
+            "reason": "selected"
+        })
+        break
+
+    if selected_list is None:
+        empty = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
+        return {
+            "status_lists": statuses,
+            "active_list": None,
+            "categories": empty
         }
 
-    if not lists:
-        return status
-
-    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(lists))) as ex:
-        results = list(ex.map(check, lists))
-    return results
-
-
-def build_channels_structure(lists):
-    statuses = test_all_lists(lists)
-    working = [s for s in statuses if s["status"] == "ok"]
-
-    if not working:
-        empty = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
-        return {"status_lists": statuses, "categories": empty}
-
-    # UZMI SAMO PRVU RADNU LISTU
-    primary_list = working[0]
-    combined = {}
-
-    ok, txt = fetch_url(primary_list["url"])
-    if ok and txt:
-        parsed = parse_m3u_text(txt)
-        for name, info in parsed.items():
-            if name not in combined:
-                combined[name] = info
-
     categories = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
-    for name, info in combined.items():
+
+    for name, info in selected_streams.items():
         cat = categorize_by_group_name(info.get("group", "Ostalo"))
         grp = info.get("group") or "Ostalo"
-        categories.setdefault(cat, {})
-        categories[cat].setdefault(grp, []).append(
-            {
-                "name": name,
-                "url": info.get("url"),
-                "logo": info.get("logo"),
-            }
-        )
 
-    return {"status_lists": statuses, "categories": categories}
+        categories.setdefault(cat, {})
+        categories[cat].setdefault(grp, []).append({
+            "name": name,
+            "url": info.get("url"),
+            "logo": info.get("logo"),
+        })
+
+    return {
+        "status_lists": statuses,
+        "active_list": {
+            "id": selected_list["id"],
+            "name": selected_list["name"],
+            "url": selected_list["url"]
+        },
+        "categories": categories
+    }
 
 
 @app.route("/api/channels")
 def api_channels():
     global cache
     now = time.time()
+
     if cache["data"] and now - cache["timestamp"] < CACHE_DURATION:
         return jsonify(cache["data"])
 
@@ -156,6 +226,13 @@ def api_channels():
     return jsonify(data)
 
 
+@app.route("/api/refresh")
+def api_refresh():
+    global cache
+    cache = {"data": None, "timestamp": 0}
+    return jsonify({"ok": True, "message": "Cache cleared"})
+
+
 @app.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory("static", filename)
@@ -163,7 +240,7 @@ def static_files(filename):
 
 @app.route("/")
 def home():
-    return "<h3>✅ SignalTV API radi</h3><p><a href='/api/channels'>/api/channels</a></p>"
+    return "✅ SignalTV API radi /api/channels"
 
 
 if __name__ == "__main__":

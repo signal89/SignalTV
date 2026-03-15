@@ -7,12 +7,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  ActivityIndicator,
+  Platform,
+  Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SERVER_URL } from "../config";
 
 export default function CategoryScreen({ route, navigation }) {
-  const { category, rawKeys = [] } = route.params; // category = logičko ime
+  const { category, rawKeys = [] } = route.params;
   const [groups, setGroups] = useState([]);
   const [hiddenGroups, setHiddenGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +24,9 @@ export default function CategoryScreen({ route, navigation }) {
   const [showHidden, setShowHidden] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
 
+  const { width } = Dimensions.get("window");
+  const isTvLike = Platform.isTV || width >= 900;
+
   useEffect(() => {
     const fetchGroups = async () => {
       try {
@@ -28,10 +34,9 @@ export default function CategoryScreen({ route, navigation }) {
         const json = await res.json();
 
         const source = json && json.categories ? json.categories : {};
-
-        // spoji sve grupe iz svih originalnih kategorija koje pripadaju ovoj logičkoj
         const catObj = {};
         const keysToUse = rawKeys.length ? rawKeys : [category];
+
         keysToUse.forEach((key) => {
           if (source[key]) {
             Object.assign(catObj, source[key]);
@@ -49,25 +54,34 @@ export default function CategoryScreen({ route, navigation }) {
         setLoading(false);
       }
     };
+
     fetchGroups();
   }, [category, rawKeys]);
 
   const toggleGroup = async (grp) => {
-    let newHidden = [...hiddenGroups];
-    if (hiddenGroups.includes(grp))
-      newHidden = newHidden.filter((g) => g !== grp);
-    else newHidden.push(grp);
+    try {
+      let newHidden = [...hiddenGroups];
 
-    setHiddenGroups(newHidden);
-    await AsyncStorage.setItem(
-      `hidden_${category}`,
-      JSON.stringify(newHidden)
-    );
+      if (hiddenGroups.includes(grp)) {
+        newHidden = newHidden.filter((g) => g !== grp);
+      } else {
+        newHidden.push(grp);
+      }
+
+      setHiddenGroups(newHidden);
+      await AsyncStorage.setItem(
+        `hidden_${category}`,
+        JSON.stringify(newHidden)
+      );
+    } catch (err) {
+      console.log("Greška pri sakrivanju grupe:", err);
+    }
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
+        <ActivityIndicator size="large" color="#FFD700" />
         <Text style={styles.loadingText}>Učitavanje...</Text>
       </View>
     );
@@ -99,52 +113,74 @@ export default function CategoryScreen({ route, navigation }) {
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.headerText}>{category}</Text>
+      <Text style={styles.headerText} numberOfLines={2}>
+        {category}
+      </Text>
 
-      <TextInput
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Pretraga grupa..."
-        placeholderTextColor="#888"
-        style={styles.searchInput}
-      />
+      {!isTvLike && (
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Pretraga grupa..."
+          placeholderTextColor="#888"
+          style={styles.searchInput}
+        />
+      )}
 
       <FlatList
         data={listData}
         keyExtractor={(item) => item}
-        extraData={focusedIndex}
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            focusable={true}
-            onFocus={() => setFocusedIndex(index)}
-            style={[
-              styles.groupBtn,
-              index === focusedIndex && styles.groupBtnFocused,
-            ]}
-            onPress={() =>
-              showHidden
-                ? toggleGroup(item)
-                : navigation.navigate(
-                    category === "Serije" ? "Series" : "Group",
-                    { category, groupName: item }
-                  )
-            }
-            onLongPress={() => toggleGroup(item)}
-          >
-            <Text style={styles.groupText}>{item}</Text>
-          </TouchableOpacity>
-        )}
+        extraData={{ focusedIndex, showHidden, hiddenGroups }}
+        renderItem={({ item, index }) => {
+          const focused = index === focusedIndex;
+
+          return (
+            <TouchableOpacity
+              focusable={true}
+              activeOpacity={0.85}
+              hasTVPreferredFocus={index === 0}
+              onFocus={() => setFocusedIndex(index)}
+              style={[
+                styles.groupBtn,
+                focused && styles.groupBtnFocused,
+              ]}
+              onPress={() =>
+                showHidden
+                  ? toggleGroup(item)
+                  : navigation.navigate(
+                      category === "Serije" ? "Series" : "Group",
+                      { category, groupName: item }
+                    )
+              }
+              onLongPress={() => toggleGroup(item)}
+            >
+              <Text
+                style={[
+                  styles.groupText,
+                  focused && styles.groupTextFocused,
+                ]}
+                numberOfLines={2}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
         initialNumToRender={20}
         maxToRenderPerBatch={20}
         windowSize={5}
-        removeClippedSubviews={true}
+        removeClippedSubviews={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
       />
 
       <TouchableOpacity
+        focusable={true}
+        activeOpacity={0.85}
         style={[styles.groupBtn, styles.toggleBtn]}
         onPress={() => setShowHidden((prev) => !prev)}
       >
-        <Text style={styles.groupText}>
+        <Text style={[styles.groupText, styles.toggleText]}>
           {showHidden
             ? "Prikaži vidljive grupe"
             : "Prikaži sakrivene grupe"}
@@ -152,60 +188,99 @@ export default function CategoryScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <Text style={styles.hintText}>
-        Drži grupu za sakriti/ponovo prikazati
+        Drži grupu za sakriti ili ponovo prikazati
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, padding: 10, backgroundColor: "#000" },
+  screen: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: "#000",
+  },
 
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
+    paddingHorizontal: 20,
   },
-  loadingText: { color: "white", fontSize: 18 },
+
+  loadingText: {
+    color: "#fff",
+    fontSize: 18,
+    marginTop: 10,
+    textAlign: "center",
+  },
 
   headerText: {
-    color: "white",
-    fontSize: 22,
+    color: "#fff",
+    fontSize: 24,
     marginBottom: 10,
+    fontWeight: "bold",
   },
 
   searchInput: {
     backgroundColor: "#222",
     color: "#fff",
-    padding: 10,
-    borderRadius: 8,
+    padding: 12,
+    borderRadius: 10,
     marginBottom: 10,
     fontSize: 16,
   },
 
+  listContent: {
+    paddingBottom: 20,
+  },
+
   groupBtn: {
     backgroundColor: "#007AFF",
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     marginVertical: 6,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
-  },
-  groupBtnFocused: {
-    backgroundColor: "#1e90ff",
+    justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: "transparent",
+    minHeight: 58,
   },
-  groupText: { color: "#222", fontSize: 18, fontWeight: "600" },
+
+  groupBtnFocused: {
+    borderColor: "#FFD700",
+    borderWidth: 4,
+    backgroundColor: "#1565C0",
+    transform: [{ scale: 1.05 }],
+  },
+
+  groupText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  groupTextFocused: {
+    color: "#FFD700",
+    fontSize: 19,
+  },
 
   toggleBtn: {
     backgroundColor: "#444",
     marginTop: 10,
   },
 
+  toggleText: {
+    color: "#fff",
+  },
+
   hintText: {
-    color: "white",
+    color: "#bbb",
     marginTop: 10,
     fontSize: 16,
+    textAlign: "center",
   },
 });
