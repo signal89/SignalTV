@@ -28,13 +28,22 @@
         "backgroundColor": "#000000"
       },
       "permissions": [],
-      "minSdkVersion": 23
+      "minSdkVersion": 23,
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-video"
+      "expo-video",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
