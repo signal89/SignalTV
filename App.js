@@ -1,6 +1,5 @@
-// App.js
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, Animated } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -13,6 +12,107 @@ import PlayerScreen from "./screens/PlayerScreen";
 import SeriesScreen from "./screens/SeriesScreen";
 
 const Stack = createNativeStackNavigator();
+
+function StartupLoader() {
+  const [signalStep, setSignalStep] = useState(0);
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const signalLetters = useMemo(
+    () => ["🇸", "🇮", "🇬", "🇳", "🇦", "🇱"],
+    []
+  );
+
+  useEffect(() => {
+    const stepTimer = setInterval(() => {
+      setSignalStep((prev) => (prev + 1) % (signalLetters.length + 1));
+    }, 250);
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+
+    return () => {
+      clearInterval(stepTimer);
+      glowAnim.stopAnimation();
+    };
+  }, [glowAnim, signalLetters.length]);
+
+  const animatedOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.75, 1],
+  });
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#000",
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 20,
+      }}
+    >
+      <Text
+        style={{
+          color: "#FFD700",
+          fontSize: 30,
+          fontWeight: "bold",
+          textAlign: "center",
+          marginBottom: 26,
+        }}
+      >
+        👉🇸 🇮 🇬 🇳 🇦 🇱 👈
+      </Text>
+
+      <Animated.View
+        style={{
+          backgroundColor: "#111",
+          borderWidth: 2,
+          borderColor: "#FFD700",
+          borderRadius: 18,
+          paddingVertical: 16,
+          paddingHorizontal: 18,
+          marginBottom: 18,
+          opacity: animatedOpacity,
+        }}
+      >
+        <View style={{ flexDirection: "row" }}>
+          {signalLetters.map((letter, index) => {
+            const active = index < signalStep;
+            return (
+              <Text
+                key={index}
+                style={{
+                  fontSize: 28,
+                  fontWeight: "bold",
+                  marginHorizontal: 4,
+                  color: active ? "#FFD700" : "#555",
+                }}
+              >
+                {letter}
+              </Text>
+            );
+          })}
+        </View>
+      </Animated.View>
+
+      <Text style={{ color: "#fff", fontSize: 18 }}>
+        Pokretanje aplikacije...
+      </Text>
+    </View>
+  );
+}
 
 export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
@@ -33,18 +133,7 @@ export default function App() {
   }, []);
 
   if (!initialRoute) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#000",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" color="#FFD700" />
-      </View>
-    );
+    return <StartupLoader />;
   }
 
   return (
@@ -54,6 +143,10 @@ export default function App() {
         screenOptions={{
           headerStyle: { backgroundColor: "#000" },
           headerTintColor: "#fff",
+          headerTitleStyle: {
+            fontSize: 28,
+            fontWeight: "bold",
+          },
           contentStyle: { backgroundColor: "#000" },
         }}
       >
@@ -65,7 +158,7 @@ export default function App() {
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: "SignalTV" }}
+          options={{ title: "👉 SIGNAL 👈" }}
         />
         <Stack.Screen
           name="Category"

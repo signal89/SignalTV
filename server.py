@@ -72,7 +72,7 @@ def parse_m3u_text(text):
     return streams
 
 
-def fetch_playlist(url, timeout=6):
+def fetch_playlist(url, timeout=4):
     try:
         r = requests.get(url, timeout=timeout, allow_redirects=True)
         if r.status_code == 200 and quick_parse_for_status(r.text):
@@ -82,7 +82,7 @@ def fetch_playlist(url, timeout=6):
         return False, None
 
 
-def test_stream_url(url, timeout=5):
+def test_stream_url(url, timeout=3):
     try:
         r = requests.get(url, stream=True, timeout=timeout, allow_redirects=True)
         code = r.status_code
@@ -92,7 +92,7 @@ def test_stream_url(url, timeout=5):
         return False
 
 
-def is_playlist_usable(parsed_streams, sample_size=5):
+def is_playlist_usable(parsed_streams, sample_size=2):
     urls = []
     for _, info in parsed_streams.items():
         u = info.get("url")
@@ -111,20 +111,42 @@ def is_playlist_usable(parsed_streams, sample_size=5):
     return False
 
 
-def categorize_by_group_name(group_name):
+def detect_category(group_name, channel_name):
     g = (group_name or "").lower()
+    n = (channel_name or "").lower()
+    text = f"{g} {n}"
 
-    if any(x in g for x in [
-        "film", "movie", "filmovi", "movies", "vod", "filmov", "movie "
-    ]):
-        return "Filmovi"
-
-    if any(x in g for x in [
-        "serij", "serije", "series", "episode", "epizod"
+    if any(x in text for x in [
+        "serie", "series", "serije", "serija", "sezona", "season", "epizod", "episode"
     ]):
         return "Serije"
 
+    if any(x in text for x in [
+        "movie", "movies", "film", "filmovi", "kino", "cinema", "vod"
+    ]):
+        return "Filmovi"
+
     return "LiveTV"
+
+
+def normalize_group_name(group_name, category):
+    grp = (group_name or "").strip()
+    low = grp.lower()
+
+    if category == "Filmovi":
+        if low in ["", "ostalo", "other", "others"]:
+            return "Filmovi"
+        return grp
+
+    if category == "Serije":
+        if low in ["", "ostalo", "other", "others"]:
+            return "Serije"
+        return grp
+
+    if low in ["", "ostalo", "other", "others"]:
+        return "LiveTV"
+
+    return grp
 
 
 def build_channels_structure(lists):
@@ -157,7 +179,7 @@ def build_channels_structure(lists):
             })
             continue
 
-        usable = is_playlist_usable(parsed, sample_size=5)
+        usable = is_playlist_usable(parsed, sample_size=2)
 
         if not usable:
             statuses.append({
@@ -191,15 +213,19 @@ def build_channels_structure(lists):
     categories = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
 
     for name, info in selected_streams.items():
-        cat = categorize_by_group_name(info.get("group", "Ostalo"))
-        grp = info.get("group") or "Ostalo"
+        category = detect_category(info.get("group", ""), name)
+        group_name = normalize_group_name(info.get("group", ""), category)
 
-        categories.setdefault(cat, {})
-        categories[cat].setdefault(grp, []).append({
+        categories.setdefault(category, {})
+        categories[category].setdefault(group_name, []).append({
             "name": name,
             "url": info.get("url"),
             "logo": info.get("logo"),
         })
+
+    for cat in categories:
+        for grp in categories[cat]:
+            categories[cat][grp].sort(key=lambda x: (x.get("name") or "").lower())
 
     return {
         "status_lists": statuses,

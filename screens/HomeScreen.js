@@ -1,5 +1,4 @@
-// screens/HomeScreen.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,12 +6,11 @@ import {
   TouchableOpacity,
   Dimensions,
   FlatList,
-  ActivityIndicator,
   Platform,
+  Animated,
 } from "react-native";
 import { SERVER_URL } from "../config";
 
-// mapira razne nazive na tri glavne kategorije
 const mapCat = (name) => {
   const n = (name || "").toLowerCase();
 
@@ -36,6 +34,37 @@ export default function HomeScreen({ navigation }) {
   const [rawCategories, setRawCategories] = useState({});
   const [loading, setLoading] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [signalStep, setSignalStep] = useState(0);
+
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const signalLetters = useMemo(() => ["🇸", "🇮", "🇬", "🇳", "🇦", "🇱"], []);
+
+  useEffect(() => {
+    const stepTimer = setInterval(() => {
+      setSignalStep((prev) => (prev + 1) % (signalLetters.length + 1));
+    }, 250);
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 700,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+
+    return () => {
+      clearInterval(stepTimer);
+      glowAnim.stopAnimation();
+    };
+  }, [glowAnim, signalLetters.length]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,8 +108,10 @@ export default function HomeScreen({ navigation }) {
 
   const { width } = Dimensions.get("window");
   const isTvLike = Platform.isTV || width >= 900;
-  const numColumns = isTvLike ? 4 : 3;
-  const itemSize = (width - 20 - numColumns * 10) / numColumns;
+  const numColumns = categories.length <= 3 ? 3 : isTvLike ? 4 : 3;
+  const horizontalPadding = 20;
+  const totalMargins = numColumns * 10;
+  const itemSize = (width - horizontalPadding - totalMargins) / numColumns;
 
   const renderItem = ({ item, index }) => {
     const focused = index === focusedIndex;
@@ -110,23 +141,67 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  const animatedShadow = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.15, 0.9],
+  });
+
   return (
     <View style={styles.container}>
       {loading ? (
         <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color="#FFD700" />
+          <Text style={styles.mainTitle}>👉🇸 🇮 🇬 🇳 🇦 🇱 👈</Text>
+
+          <Animated.View
+            style={[
+              styles.signalBox,
+              {
+                shadowOpacity: animatedShadow,
+                opacity: glowAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.75, 1],
+                }),
+              },
+            ]}
+          >
+            <View style={styles.lettersRow}>
+              {signalLetters.map((letter, index) => {
+                const active = index < signalStep;
+                return (
+                  <Text
+                    key={index}
+                    style={[
+                      styles.signalLetter,
+                      active ? styles.signalLetterActive : styles.signalLetterIdle,
+                    ]}
+                  >
+                    {letter}
+                  </Text>
+                );
+              })}
+            </View>
+          </Animated.View>
+
           <Text style={styles.loadingText}>Učitavanje kategorija...</Text>
         </View>
       ) : categories.length > 0 ? (
-        <FlatList
-          data={categories}
-          renderItem={renderItem}
-          keyExtractor={(item) => item}
-          numColumns={numColumns}
-          extraData={focusedIndex}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.homeContent}>
+          <Text style={styles.screenTitle}>Odaberi kategoriju</Text>
+
+          <FlatList
+            data={categories}
+            renderItem={renderItem}
+            keyExtractor={(item) => item}
+            numColumns={numColumns}
+            extraData={focusedIndex}
+            contentContainerStyle={styles.listContent}
+            columnWrapperStyle={
+              numColumns > 1 ? styles.columnWrapperCentered : undefined
+            }
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+          />
+        </View>
       ) : (
         <Text style={styles.emptyText}>Nema dostupnih kategorija.</Text>
       )}
@@ -140,20 +215,83 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
 
+  homeContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 10,
+  },
+
+  screenTitle: {
+    color: "#FFD700",
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 28,
+  },
+
   listContent: {
-    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  columnWrapperCentered: {
+    justifyContent: "center",
   },
 
   loaderWrap: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  mainTitle: {
+    color: "#FFD700",
+    fontSize: 30,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 26,
+  },
+
+  signalBox: {
+    backgroundColor: "#111",
+    borderWidth: 2,
+    borderColor: "#FFD700",
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    marginBottom: 18,
+    shadowColor: "#FFD700",
+    shadowRadius: 16,
+    elevation: 10,
+  },
+
+  lettersRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  signalLetter: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginHorizontal: 4,
+  },
+
+  signalLetterIdle: {
+    color: "#555",
+  },
+
+  signalLetterActive: {
+    color: "#FFD700",
   },
 
   loadingText: {
     color: "#fff",
-    marginTop: 12,
+    marginTop: 10,
     fontSize: 18,
+    textAlign: "center",
   },
 
   emptyText: {

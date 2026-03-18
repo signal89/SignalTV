@@ -1,5 +1,4 @@
-// screens/GroupScreen.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +14,7 @@ import { SERVER_URL } from "../config";
 
 export default function GroupScreen({ route, navigation }) {
   const { category, groupName } = route.params;
+
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -49,13 +49,20 @@ export default function GroupScreen({ route, navigation }) {
     fetchGroupItems();
   }, [category, groupName]);
 
-  const filteredChannels = channels.filter((ch) =>
-    (ch.name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredChannels = useMemo(() => {
+    return channels.filter((ch) =>
+      (ch.name || "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [channels, search]);
+
+  useEffect(() => {
+    setFocusedIndex(0);
+  }, [search, channels.length]);
 
   const handlePress = (index) => {
     const ch = filteredChannels[index];
     console.log("CLICKED CHANNEL:", ch?.name, ch?.url);
+
     setCurrentIndex(index);
 
     navigation.navigate("Player", {
@@ -75,22 +82,22 @@ export default function GroupScreen({ route, navigation }) {
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.headerText} numberOfLines={2}>
-        {groupName}
-      </Text>
+      <Text style={styles.headerText}>{groupName}</Text>
 
       {!isTvLike && (
         <TextInput
+          style={styles.searchInput}
+          placeholder="Pretraži kanale..."
+          placeholderTextColor="#888"
           value={search}
           onChangeText={setSearch}
-          placeholder="Pretraga kanala..."
-          placeholderTextColor="#888"
-          style={styles.searchInput}
         />
       )}
 
       {filteredChannels.length === 0 ? (
-        <Text style={styles.emptyText}>Nema kanala u ovoj grupi.</Text>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>Nema kanala u ovoj grupi.</Text>
+        </View>
       ) : (
         <FlatList
           data={filteredChannels}
@@ -103,7 +110,6 @@ export default function GroupScreen({ route, navigation }) {
             return (
               <TouchableOpacity
                 focusable={true}
-                activeOpacity={0.85}
                 hasTVPreferredFocus={index === 0}
                 onFocus={() => setFocusedIndex(index)}
                 onPress={() => handlePress(index)}
@@ -118,7 +124,6 @@ export default function GroupScreen({ route, navigation }) {
                     styles.itemText,
                     focused && styles.itemTextFocused,
                   ]}
-                  numberOfLines={2}
                 >
                   {item.name}
                 </Text>
@@ -149,12 +154,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
+    paddingHorizontal: 20,
   },
 
   loadingText: {
     color: "#fff",
     marginTop: 10,
     fontSize: 18,
+    textAlign: "center",
   },
 
   headerText: {
@@ -162,6 +169,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 10,
     fontWeight: "bold",
+    textAlign: "center",
   },
 
   searchInput: {
@@ -177,10 +185,17 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
 
+  emptyWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
   emptyText: {
-    color: "#fff",
+    color: "#bbb",
     fontSize: 18,
-    marginTop: 10,
+    textAlign: "center",
   },
 
   itemBtn: {

@@ -1,5 +1,4 @@
-// screens/CategoryScreen.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,6 +15,7 @@ import { SERVER_URL } from "../config";
 
 export default function CategoryScreen({ route, navigation }) {
   const { category, rawKeys = [] } = route.params;
+
   const [groups, setGroups] = useState([]);
   const [hiddenGroups, setHiddenGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,10 +46,15 @@ export default function CategoryScreen({ route, navigation }) {
         setGroups(Object.keys(catObj));
 
         const h = await AsyncStorage.getItem(`hidden_${category}`);
-        if (h) setHiddenGroups(JSON.parse(h));
+        if (h) {
+          setHiddenGroups(JSON.parse(h));
+        } else {
+          setHiddenGroups([]);
+        }
       } catch (err) {
         console.log("Greška:", err);
         setGroups([]);
+        setHiddenGroups([]);
       } finally {
         setLoading(false);
       }
@@ -78,6 +83,28 @@ export default function CategoryScreen({ route, navigation }) {
     }
   };
 
+  const visibleGroups = useMemo(() => {
+    return groups.filter(
+      (g) =>
+        !hiddenGroups.includes(g) &&
+        g.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [groups, hiddenGroups, search]);
+
+  const hiddenOnly = useMemo(() => {
+    return groups.filter(
+      (g) =>
+        hiddenGroups.includes(g) &&
+        g.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [groups, hiddenGroups, search]);
+
+  const listData = showHidden ? hiddenOnly : visibleGroups;
+
+  useEffect(() => {
+    setFocusedIndex(0);
+  }, [search, showHidden, groups.length, hiddenGroups.length]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -97,88 +124,79 @@ export default function CategoryScreen({ route, navigation }) {
     );
   }
 
-  const visibleGroups = groups.filter(
-    (g) =>
-      !hiddenGroups.includes(g) &&
-      g.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const hiddenOnly = groups.filter(
-    (g) =>
-      hiddenGroups.includes(g) &&
-      g.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const listData = showHidden ? hiddenOnly : visibleGroups;
-
   return (
     <View style={styles.screen}>
-      <Text style={styles.headerText} numberOfLines={2}>
-        {category}
-      </Text>
+      <Text style={styles.headerText}>{category}</Text>
 
       {!isTvLike && (
         <TextInput
+          style={styles.searchInput}
+          placeholder="Pretraži grupe..."
+          placeholderTextColor="#888"
           value={search}
           onChangeText={setSearch}
-          placeholder="Pretraga grupa..."
-          placeholderTextColor="#888"
-          style={styles.searchInput}
         />
       )}
 
-      <FlatList
-        data={listData}
-        keyExtractor={(item) => item}
-        extraData={{ focusedIndex, showHidden, hiddenGroups }}
-        renderItem={({ item, index }) => {
-          const focused = index === focusedIndex;
+      {listData.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>
+            {showHidden
+              ? "Nema sakrivenih grupa za prikaz."
+              : "Nema grupa za prikaz."}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={listData}
+          keyExtractor={(item) => item}
+          extraData={{ focusedIndex, showHidden, hiddenGroups }}
+          renderItem={({ item, index }) => {
+            const focused = index === focusedIndex;
 
-          return (
-            <TouchableOpacity
-              focusable={true}
-              activeOpacity={0.85}
-              hasTVPreferredFocus={index === 0}
-              onFocus={() => setFocusedIndex(index)}
-              style={[
-                styles.groupBtn,
-                focused && styles.groupBtnFocused,
-              ]}
-              onPress={() =>
-                showHidden
-                  ? toggleGroup(item)
-                  : navigation.navigate(
-                      category === "Serije" ? "Series" : "Group",
-                      { category, groupName: item }
-                    )
-              }
-              onLongPress={() => toggleGroup(item)}
-            >
-              <Text
+            return (
+              <TouchableOpacity
+                focusable={true}
+                hasTVPreferredFocus={index === 0}
+                onFocus={() => setFocusedIndex(index)}
                 style={[
-                  styles.groupText,
-                  focused && styles.groupTextFocused,
+                  styles.groupBtn,
+                  focused && styles.groupBtnFocused,
                 ]}
-                numberOfLines={2}
+                onPress={() =>
+                  showHidden
+                    ? toggleGroup(item)
+                    : navigation.navigate(
+                        category === "Serije" ? "Series" : "Group",
+                        { category, groupName: item }
+                      )
+                }
+                onLongPress={() => toggleGroup(item)}
               >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        }}
-        initialNumToRender={20}
-        maxToRenderPerBatch={20}
-        windowSize={5}
-        removeClippedSubviews={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-      />
+                <Text
+                  style={[
+                    styles.groupText,
+                    focused && styles.groupTextFocused,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+          initialNumToRender={20}
+          maxToRenderPerBatch={20}
+          windowSize={5}
+          removeClippedSubviews={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
 
       <TouchableOpacity
         focusable={true}
-        activeOpacity={0.85}
-        style={[styles.groupBtn, styles.toggleBtn]}
         onPress={() => setShowHidden((prev) => !prev)}
+        style={[styles.groupBtn, styles.toggleBtn]}
       >
         <Text style={[styles.groupText, styles.toggleText]}>
           {showHidden
@@ -221,6 +239,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 10,
     fontWeight: "bold",
+    textAlign: "center",
   },
 
   searchInput: {
@@ -234,6 +253,19 @@ const styles = StyleSheet.create({
 
   listContent: {
     paddingBottom: 20,
+  },
+
+  emptyWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  emptyText: {
+    color: "#bbb",
+    fontSize: 18,
+    textAlign: "center",
   },
 
   groupBtn: {

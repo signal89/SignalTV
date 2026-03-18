@@ -1,24 +1,26 @@
-// screens/PlayerScreen.js
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   FlatList,
   BackHandler,
   Platform,
+  Pressable,
 } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 
 export default function PlayerScreen({ route, navigation }) {
   const { channelList = [], index = 0 } = route.params || {};
+
   const [currentIndex, setCurrentIndex] = useState(index);
   const [focusedIndex, setFocusedIndex] = useState(index);
   const [controlFocus, setControlFocus] = useState("exit");
   const [videoError, setVideoError] = useState("");
   const [isBuffering, setIsBuffering] = useState(true);
+  const [showOverlay, setShowOverlay] = useState(false);
+
   const videoRef = useRef(null);
 
   const realChannel = channelList[currentIndex];
@@ -29,39 +31,43 @@ export default function PlayerScreen({ route, navigation }) {
   };
 
   const channel = realChannel || fallbackChannel;
-
-  const { width, height } = Dimensions.get("window");
-  const isTvLike = Platform.isTV || width >= 900;
-  const videoHeight = isTvLike ? Math.min(height * 0.42, 360) : (width * 9) / 16;
+  const isTvLike = Platform.isTV;
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (showOverlay) {
+          setShowOverlay(false);
+          return true;
+        }
+
         navigation.goBack();
         return true;
       }
     );
 
     return () => backHandler.remove();
-  }, [navigation]);
+  }, [navigation, showOverlay]);
 
   useEffect(() => {
     setVideoError("");
     setIsBuffering(true);
+    setShowOverlay(false);
+    setControlFocus("exit");
   }, [currentIndex]);
 
   const next = () => {
     if (currentIndex < channelList.length - 1) {
-      setCurrentIndex((i) => i + 1);
-      setFocusedIndex((i) => Math.min(i + 1, channelList.length - 1));
+      setCurrentIndex((prev) => prev + 1);
+      setFocusedIndex((prev) => Math.min(prev + 1, channelList.length - 1));
     }
   };
 
   const prev = () => {
     if (currentIndex > 0) {
-      setCurrentIndex((i) => i - 1);
-      setFocusedIndex((i) => Math.max(i - 1, 0));
+      setCurrentIndex((prev) => prev - 1);
+      setFocusedIndex((prev) => Math.max(prev - 1, 0));
     }
   };
 
@@ -81,6 +87,10 @@ export default function PlayerScreen({ route, navigation }) {
     }
   };
 
+  const toggleOverlay = () => {
+    setShowOverlay((prev) => !prev);
+  };
+
   if (!channel) {
     return (
       <View style={styles.center}>
@@ -90,16 +100,15 @@ export default function PlayerScreen({ route, navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <Pressable style={styles.container} onPress={toggleOverlay}>
       <View style={styles.videoWrap}>
         <Video
-          key={channel.url}
           ref={videoRef}
-          style={{ width: "100%", height: videoHeight, backgroundColor: "#000" }}
-          resizeMode={ResizeMode.CONTAIN}
-          useNativeControls
-          shouldPlay
           source={{ uri: channel.url }}
+          style={styles.video}
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay
+          useNativeControls={false}
           onLoadStart={() => {
             setIsBuffering(true);
             setVideoError("");
@@ -123,108 +132,135 @@ export default function PlayerScreen({ route, navigation }) {
             console.log("Video error:", JSON.stringify(e, null, 2));
             setVideoError("Stream se ne može pokrenuti na ovom uređaju.");
             setIsBuffering(false);
+            setShowOverlay(true);
           }}
         />
 
-        {isBuffering && !videoError ? (
-          <View style={styles.overlayBox}>
-            <Text style={styles.overlayText}>Učitavanje streama...</Text>
+        {!showOverlay && !videoError ? (
+          <View style={styles.channelBadge}>
+            <Text style={styles.channelBadgeText}>{channel.name}</Text>
           </View>
         ) : null}
 
         {videoError ? (
-          <View style={styles.overlayBox}>
+          <View style={styles.errorOverlay}>
             <Text style={styles.overlayTitle}>Player error</Text>
             <Text style={styles.overlayText}>{videoError}</Text>
-            <Text style={styles.overlaySmall} numberOfLines={2}>
-              {channel.url}
-            </Text>
+            <Text style={styles.overlaySmall}>{channel.url}</Text>
 
             <TouchableOpacity
               focusable={true}
-              style={[styles.retryBtn, controlFocus === "retry" && styles.ctrlBtnFocused]}
               onFocus={() => setControlFocus("retry")}
               onPress={retryCurrent}
+              style={[
+                styles.retryBtn,
+                controlFocus === "retry" && styles.ctrlBtnFocused,
+              ]}
             >
               <Text style={styles.ctrlText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : null}
-      </View>
 
-      <Text style={styles.title} numberOfLines={1}>
-        {channel.name}
-      </Text>
+        {showOverlay ? (
+          <View style={styles.overlay}>
+            <View style={styles.overlayTop}>
+              <Text style={styles.title}>{channel.name}</Text>
 
-      <View style={styles.controlsRow}>
-        <TouchableOpacity
-          focusable={true}
-          style={[styles.ctrlBtn, controlFocus === "prev" && styles.ctrlBtnFocused]}
-          onFocus={() => setControlFocus("prev")}
-          onPress={prev}
-        >
-          <Text style={styles.ctrlText}>Prev</Text>
-        </TouchableOpacity>
+              <View style={styles.controlsRow}>
+                <TouchableOpacity
+                  focusable={true}
+                  onFocus={() => setControlFocus("prev")}
+                  onPress={prev}
+                  style={[
+                    styles.ctrlBtn,
+                    controlFocus === "prev" && styles.ctrlBtnFocused,
+                  ]}
+                >
+                  <Text style={styles.ctrlText}>Prev</Text>
+                </TouchableOpacity>
 
-        <TouchableOpacity
-          focusable={true}
-          style={[styles.ctrlBtn, controlFocus === "exit" && styles.ctrlBtnFocused]}
-          onFocus={() => setControlFocus("exit")}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.ctrlText}>Exit</Text>
-        </TouchableOpacity>
+                <TouchableOpacity
+                  focusable={true}
+                  hasTVPreferredFocus={true}
+                  onFocus={() => setControlFocus("exit")}
+                  onPress={() => navigation.goBack()}
+                  style={[
+                    styles.ctrlBtn,
+                    controlFocus === "exit" && styles.ctrlBtnFocused,
+                  ]}
+                >
+                  <Text style={styles.ctrlText}>Exit</Text>
+                </TouchableOpacity>
 
-        <TouchableOpacity
-          focusable={true}
-          style={[styles.ctrlBtn, controlFocus === "next" && styles.ctrlBtnFocused]}
-          onFocus={() => setControlFocus("next")}
-          onPress={next}
-        >
-          <Text style={styles.ctrlText}>Next</Text>
-        </TouchableOpacity>
-      </View>
+                <TouchableOpacity
+                  focusable={true}
+                  onFocus={() => setControlFocus("next")}
+                  onPress={next}
+                  style={[
+                    styles.ctrlBtn,
+                    controlFocus === "next" && styles.ctrlBtnFocused,
+                  ]}
+                >
+                  <Text style={styles.ctrlText}>Next</Text>
+                </TouchableOpacity>
+              </View>
 
-      <FlatList
-        data={channelList}
-        keyExtractor={(item, idx) => (item.url || item.name || "chan") + idx}
-        extraData={{ currentIndex, focusedIndex }}
-        renderItem={({ item, index: idx }) => {
-          const focused = idx === focusedIndex;
-          const active = idx === currentIndex;
-
-          return (
-            <TouchableOpacity
-              focusable={true}
-              activeOpacity={0.85}
-              hasTVPreferredFocus={idx === index}
-              onFocus={() => setFocusedIndex(idx)}
-              style={[
-                styles.listItem,
-                active && styles.listItemActive,
-                focused && styles.listItemFocused,
-              ]}
-              onPress={() => {
-                console.log("CLICKED IN PLAYER:", item.name, item.url);
-                setCurrentIndex(idx);
-                setFocusedIndex(idx);
-              }}
-            >
-              <Text
-                style={[styles.listText, focused && styles.listTextFocused]}
-                numberOfLines={1}
-              >
-                {item.name}
+              <Text style={styles.overlayHint}>
+                OK sakriva/prikazuje meni
               </Text>
-            </TouchableOpacity>
-          );
-        }}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        removeClippedSubviews={false}
-        showsVerticalScrollIndicator={false}
-      />
-    </View>
+            </View>
+
+            <View style={styles.overlayBottom}>
+              <FlatList
+                data={channelList}
+                keyExtractor={(item, idx) => (item.url || item.name || "chan") + idx}
+                extraData={{ currentIndex, focusedIndex }}
+                renderItem={({ item, index: idx }) => {
+                  const focused = idx === focusedIndex;
+                  const active = idx === currentIndex;
+
+                  return (
+                    <TouchableOpacity
+                      focusable={true}
+                      onFocus={() => setFocusedIndex(idx)}
+                      onPress={() => {
+                        setCurrentIndex(idx);
+                        setFocusedIndex(idx);
+                      }}
+                      style={[
+                        styles.listItem,
+                        active && styles.listItemActive,
+                        focused && styles.listItemFocused,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.listText,
+                          focused && styles.listTextFocused,
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                removeClippedSubviews={false}
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {isBuffering && !videoError && !showOverlay ? (
+          <View style={styles.bufferBadge}>
+            <Text style={styles.bufferBadgeText}>Učitava...</Text>
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }
 
@@ -232,7 +268,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
-    padding: 8,
   },
 
   center: {
@@ -248,25 +283,74 @@ const styles = StyleSheet.create({
   },
 
   videoWrap: {
-    width: "100%",
+    flex: 1,
     backgroundColor: "#000",
-    alignItems: "center",
-    justifyContent: "center",
+  },
+
+  video: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#000",
+  },
+
+  channelBadge: {
+    position: "absolute",
+    top: 22,
+    left: 18,
+    right: 18,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignSelf: "center",
+  },
+
+  channelBadgeText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+
+  bufferBadge: {
+    position: "absolute",
+    bottom: 26,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+
+  bufferBadgeText: {
+    color: "#FFD700",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.60)",
+    justifyContent: "space-between",
+  },
+
+  overlayTop: {
+    paddingTop: 24,
+    paddingHorizontal: 12,
   },
 
   title: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 24,
     textAlign: "center",
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 10,
     fontWeight: "bold",
   },
 
   controlsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginVertical: 8,
+    marginBottom: 10,
   },
 
   ctrlBtn: {
@@ -293,9 +377,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
+  overlayHint: {
+    color: "#ddd",
+    textAlign: "center",
+    marginBottom: 8,
+    fontSize: 14,
+  },
+
+  overlayBottom: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingBottom: 10,
+  },
+
   list: {
     flex: 1,
-    marginTop: 8,
   },
 
   listContent: {
@@ -307,7 +403,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
     marginVertical: 4,
-    backgroundColor: "#222",
+    backgroundColor: "rgba(34,34,34,0.95)",
     borderWidth: 2,
     borderColor: "transparent",
   },
@@ -334,13 +430,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  overlayBox: {
+  errorOverlay: {
     position: "absolute",
     alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.75)",
-    padding: 14,
-    borderRadius: 10,
-    maxWidth: "90%",
+    top: "20%",
+    backgroundColor: "rgba(0,0,0,0.82)",
+    padding: 16,
+    borderRadius: 12,
+    maxWidth: "92%",
     alignItems: "center",
   },
 
@@ -362,7 +459,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     marginTop: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
 
   retryBtn: {
