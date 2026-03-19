@@ -43,7 +43,10 @@ export default function CategoryScreen({ route, navigation }) {
           }
         });
 
-        setGroups(Object.keys(catObj));
+        const loadedGroups = Object.keys(catObj).sort((a, b) =>
+          a.localeCompare(b)
+        );
+        setGroups(loadedGroups);
 
         const h = await AsyncStorage.getItem(`hidden_${category}`);
         if (h) {

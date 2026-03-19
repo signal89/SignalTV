@@ -7,7 +7,7 @@ import {
   FlatList,
   BackHandler,
   Platform,
-  Pressable,
+  TVEventHandler,
 } from "react-native";
 import { Video, ResizeMode } from "expo-av";
 
@@ -22,16 +22,15 @@ export default function PlayerScreen({ route, navigation }) {
   const [showOverlay, setShowOverlay] = useState(false);
 
   const videoRef = useRef(null);
+  const isTvLike = Platform.isTV;
 
   const realChannel = channelList[currentIndex];
-
   const fallbackChannel = {
     name: "Test video",
     url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
   };
 
   const channel = realChannel || fallbackChannel;
-  const isTvLike = Platform.isTV;
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
@@ -49,6 +48,43 @@ export default function PlayerScreen({ route, navigation }) {
 
     return () => backHandler.remove();
   }, [navigation, showOverlay]);
+
+  useEffect(() => {
+    if (!isTvLike) return;
+
+    const tvEventHandler = new TVEventHandler();
+    tvEventHandler.enable(null, (_, evt) => {
+      if (!evt || !evt.eventType) return;
+
+      if (evt.eventType === "right") {
+        if (!showOverlay) {
+          next();
+        }
+      }
+
+      if (evt.eventType === "left") {
+        if (!showOverlay) {
+          prev();
+        }
+      }
+
+      if (evt.eventType === "select") {
+        setShowOverlay((prev) => !prev);
+      }
+
+      if (evt.eventType === "menu") {
+        if (showOverlay) {
+          setShowOverlay(false);
+        } else {
+          navigation.goBack();
+        }
+      }
+    });
+
+    return () => {
+      tvEventHandler.disable();
+    };
+  }, [isTvLike, showOverlay, currentIndex, channelList.length, navigation]);
 
   useEffect(() => {
     setVideoError("");
@@ -87,10 +123,6 @@ export default function PlayerScreen({ route, navigation }) {
     }
   };
 
-  const toggleOverlay = () => {
-    setShowOverlay((prev) => !prev);
-  };
-
   if (!channel) {
     return (
       <View style={styles.center}>
@@ -100,8 +132,12 @@ export default function PlayerScreen({ route, navigation }) {
   }
 
   return (
-    <Pressable style={styles.container} onPress={toggleOverlay}>
-      <View style={styles.videoWrap}>
+    <View style={styles.container}>
+      <TouchableOpacity
+        activeOpacity={1}
+        style={styles.videoWrap}
+        onPress={() => setShowOverlay((prev) => !prev)}
+      >
         <Video
           ref={videoRef}
           source={{ uri: channel.url }}
@@ -136,12 +172,6 @@ export default function PlayerScreen({ route, navigation }) {
           }}
         />
 
-        {!showOverlay && !videoError ? (
-          <View style={styles.channelBadge}>
-            <Text style={styles.channelBadgeText}>{channel.name}</Text>
-          </View>
-        ) : null}
-
         {videoError ? (
           <View style={styles.errorOverlay}>
             <Text style={styles.overlayTitle}>Player error</Text>
@@ -150,6 +180,7 @@ export default function PlayerScreen({ route, navigation }) {
 
             <TouchableOpacity
               focusable={true}
+              hasTVPreferredFocus={true}
               onFocus={() => setControlFocus("retry")}
               onPress={retryCurrent}
               style={[
@@ -207,14 +238,16 @@ export default function PlayerScreen({ route, navigation }) {
               </View>
 
               <Text style={styles.overlayHint}>
-                OK sakriva/prikazuje meni
+                OK sakriva/prikazuje meni, lijevo/desno mijenja kanal
               </Text>
             </View>
 
             <View style={styles.overlayBottom}>
               <FlatList
                 data={channelList}
-                keyExtractor={(item, idx) => (item.url || item.name || "chan") + idx}
+                keyExtractor={(item, idx) =>
+                  (item.url || item.name || "chan") + idx
+                }
                 extraData={{ currentIndex, focusedIndex }}
                 renderItem={({ item, index: idx }) => {
                   const focused = idx === focusedIndex;
@@ -253,14 +286,8 @@ export default function PlayerScreen({ route, navigation }) {
             </View>
           </View>
         ) : null}
-
-        {isBuffering && !videoError && !showOverlay ? (
-          <View style={styles.bufferBadge}>
-            <Text style={styles.bufferBadgeText}>Učitava...</Text>
-          </View>
-        ) : null}
-      </View>
-    </Pressable>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -275,11 +302,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
+    paddingHorizontal: 20,
   },
 
   emptyText: {
     color: "#fff",
     fontSize: 18,
+    textAlign: "center",
   },
 
   videoWrap: {
@@ -291,41 +320,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#000",
-  },
-
-  channelBadge: {
-    position: "absolute",
-    top: 22,
-    left: 18,
-    right: 18,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    alignSelf: "center",
-  },
-
-  channelBadgeText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-
-  bufferBadge: {
-    position: "absolute",
-    bottom: 26,
-    alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-
-  bufferBadgeText: {
-    color: "#FFD700",
-    fontSize: 16,
-    fontWeight: "bold",
   },
 
   overlay: {

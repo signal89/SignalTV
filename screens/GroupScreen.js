@@ -31,13 +31,16 @@ export default function GroupScreen({ route, navigation }) {
         const json = await res.json();
 
         const source = json && json.categories ? json.categories : {};
-
         const arr =
           source[category] && source[category][groupName]
             ? source[category][groupName]
             : [];
 
-        setChannels(arr);
+        const sortedChannels = [...arr].sort((a, b) =>
+          (a?.name || "").localeCompare(b?.name || "")
+        );
+
+        setChannels(sortedChannels);
       } catch (err) {
         console.log("Greška:", err);
         setChannels([]);

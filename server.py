@@ -1,5 +1,8 @@
 from flask import Flask, jsonify, send_from_directory
-import requests, time, os, re
+import requests
+import time
+import os
+import re
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -42,8 +45,12 @@ def quick_parse_for_status(text):
 
 
 def parse_m3u_text(text):
-    streams = {}
-    cur_name, cur_group, cur_logo = None, "Ostalo", None
+    streams = []
+    cur_name = None
+    cur_group = "Ostalo"
+    cur_logo = None
+    cur_tvg_id = None
+    cur_tvg_name = None
 
     for raw in text.splitlines():
         line = raw.strip()
@@ -60,14 +67,28 @@ def parse_m3u_text(text):
             ml = re.search(r'tvg-logo="([^"]+)"', line, re.IGNORECASE)
             cur_logo = ml.group(1).strip() if ml else None
 
-        elif line.startswith(("http", "https", "udp://", "rtmp")):
+            mi = re.search(r'tvg-id="([^"]+)"', line, re.IGNORECASE)
+            cur_tvg_id = mi.group(1).strip() if mi else None
+
+            mn = re.search(r'tvg-name="([^"]+)"', line, re.IGNORECASE)
+            cur_tvg_name = mn.group(1).strip() if mn else None
+
+        elif line.startswith(("http://", "https://", "udp://", "rtmp://", "rtsp://")):
             if cur_name:
-                streams[cur_name] = {
+                streams.append({
+                    "name": cur_name,
                     "url": line,
                     "group": cur_group,
                     "logo": cur_logo,
-                }
-            cur_name, cur_group, cur_logo = None, "Ostalo", None
+                    "tvg_id": cur_tvg_id,
+                    "tvg_name": cur_tvg_name,
+                })
+
+            cur_name = None
+            cur_group = "Ostalo"
+            cur_logo = None
+            cur_tvg_id = None
+            cur_tvg_name = None
 
     return streams
 
@@ -94,7 +115,8 @@ def test_stream_url(url, timeout=3):
 
 def is_playlist_usable(parsed_streams, sample_size=2):
     urls = []
-    for _, info in parsed_streams.items():
+
+    for info in parsed_streams:
         u = info.get("url")
         if u and u.startswith(("http://", "https://")):
             urls.append(u)
@@ -111,20 +133,73 @@ def is_playlist_usable(parsed_streams, sample_size=2):
     return False
 
 
-def detect_category(group_name, channel_name):
+def has_year_in_title(name):
+    if not name:
+        return False
+    return re.search(r"\b(19\d{2}|20\d{2})\b", name) is not None
+
+
+def looks_like_episode(name):
+    if not name:
+        return False
+
+    patterns = [
+        r"\bS\d{1,2}E\d{1,3}\b",
+        r"\bS\d{1,2}\b",
+        r"\bE\d{1,3}\b",
+        r"\bSEASON\s*\d{1,2}\b",
+        r"\bEPISODE\s*\d{1,3}\b",
+        r"\bEP\s*\d{1,3}\b",
+        r"\bSEZONA\s*\d{1,2}\b",
+        r"\bEPIZODA\s*\d{1,3}\b",
+    ]
+
+    upper_name = name.upper()
+    return any(re.search(p, upper_name) for p in patterns)
+
+
+def detect_category(group_name, channel_name, tvg_id=None, tvg_name=None):
     g = (group_name or "").lower()
     n = (channel_name or "").lower()
-    text = f"{g} {n}"
+    t = (tvg_name or "").lower()
+    text = f"{g} {n} {t}"
 
-    if any(x in text for x in [
-        "serie", "series", "serije", "serija", "sezona", "season", "epizod", "episode"
-    ]):
+    series_keywords = [
+        "series", "serie", "serije", "serija", "season", "sezona",
+        "episode", "epizod", "episodes", "seasons"
+    ]
+
+    movie_keywords = [
+        "movie", "movies", "film", "filmovi", "cinema", "kino",
+        "vod", "videoteka", "peliculas", "filme", "filmy"
+    ]
+
+    live_keywords = [
+        "live", "tv", "sport", "sports", "news", "documentary",
+        "kids", "music", "adult", "france", "germany", "deutschland",
+        "balkan", "ex-yu", "usa", "uk", "italy", "arena", "hbo", "sky"
+    ]
+
+    if any(x in text for x in series_keywords):
         return "Serije"
 
-    if any(x in text for x in [
-        "movie", "movies", "film", "filmovi", "kino", "cinema", "vod"
-    ]):
+    if looks_like_episode(channel_name) or looks_like_episode(tvg_name):
+        return "Serije"
+
+    if any(x in text for x in movie_keywords):
         return "Filmovi"
+
+    if has_year_in_title(channel_name) and not looks_like_episode(channel_name):
+        return "Filmovi"
+
+    if tvg_id and not any(x in text for x in movie_keywords + series_keywords):
+        return "LiveTV"
+
+    if any(x in g for x in live_keywords):
+        return "LiveTV"
+
+    if any(x in n for x in [" tv", " hd", " fhd", " uhd", " 4k"]):
+        return "LiveTV"
 
     return "LiveTV"
 
@@ -133,17 +208,19 @@ def normalize_group_name(group_name, category):
     grp = (group_name or "").strip()
     low = grp.lower()
 
+    empty_names = ["", "ostalo", "other", "others", "---"]
+
     if category == "Filmovi":
-        if low in ["", "ostalo", "other", "others"]:
+        if low in empty_names:
             return "Filmovi"
         return grp
 
     if category == "Serije":
-        if low in ["", "ostalo", "other", "others"]:
+        if low in empty_names:
             return "Serije"
         return grp
 
-    if low in ["", "ostalo", "other", "others"]:
+    if low in empty_names:
         return "LiveTV"
 
     return grp
@@ -152,7 +229,7 @@ def normalize_group_name(group_name, category):
 def build_channels_structure(lists):
     statuses = []
     selected_list = None
-    selected_streams = {}
+    selected_streams = []
 
     for l in lists:
         ok, txt = fetch_playlist(l["url"])
@@ -212,8 +289,14 @@ def build_channels_structure(lists):
 
     categories = {"LiveTV": {}, "Filmovi": {}, "Serije": {}}
 
-    for name, info in selected_streams.items():
-        category = detect_category(info.get("group", ""), name)
+    for info in selected_streams:
+        name = info.get("name", "")
+        category = detect_category(
+            info.get("group", ""),
+            name,
+            info.get("tvg_id"),
+            info.get("tvg_name"),
+        )
         group_name = normalize_group_name(info.get("group", ""), category)
 
         categories.setdefault(category, {})

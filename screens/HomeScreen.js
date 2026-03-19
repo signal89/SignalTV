@@ -4,8 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  FlatList,
   Platform,
   Animated,
 } from "react-native";
@@ -34,37 +32,36 @@ export default function HomeScreen({ navigation }) {
   const [rawCategories, setRawCategories] = useState({});
   const [loading, setLoading] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [signalStep, setSignalStep] = useState(0);
 
-  const glowAnim = useRef(new Animated.Value(0)).current;
+  const colorAnim = useRef(new Animated.Value(0)).current;
 
-  const signalLetters = useMemo(() => ["🇸", "🇮", "🇬", "🇳", "🇦", "🇱"], []);
+  const orderedCategories = useMemo(() => {
+    const order = ["Filmovi", "LiveTV", "Serije"];
+    return order.filter((item) => categories.includes(item));
+  }, [categories]);
 
   useEffect(() => {
-    const stepTimer = setInterval(() => {
-      setSignalStep((prev) => (prev + 1) % (signalLetters.length + 1));
-    }, 250);
-
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(glowAnim, {
+        Animated.timing(colorAnim, {
           toValue: 1,
           duration: 700,
           useNativeDriver: false,
         }),
-        Animated.timing(glowAnim, {
+        Animated.timing(colorAnim, {
           toValue: 0,
           duration: 700,
           useNativeDriver: false,
         }),
       ])
-    ).start();
+    );
+
+    loop.start();
 
     return () => {
-      clearInterval(stepTimer);
-      glowAnim.stopAnimation();
+      loop.stop();
     };
-  }, [glowAnim, signalLetters.length]);
+  }, [colorAnim]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,8 +77,8 @@ export default function HomeScreen({ navigation }) {
 
         if (json && json.categories && Object.keys(json.categories).length > 0) {
           const source = json.categories;
-
           const norm = {};
+
           for (const key of Object.keys(source)) {
             const logical = mapCat(key);
             if (!norm[logical]) norm[logical] = [];
@@ -91,13 +88,13 @@ export default function HomeScreen({ navigation }) {
           setRawCategories(norm);
           setCategories(Object.keys(norm));
         } else {
-          setCategories([]);
           setRawCategories({});
+          setCategories([]);
         }
       } catch (err) {
         console.log("Greška:", err);
-        setCategories([]);
         setRawCategories({});
+        setCategories([]);
       } finally {
         setLoading(false);
       }
@@ -106,105 +103,73 @@ export default function HomeScreen({ navigation }) {
     fetchData();
   }, []);
 
-  const { width } = Dimensions.get("window");
-  const isTvLike = Platform.isTV || width >= 900;
-  const numColumns = categories.length <= 3 ? 3 : isTvLike ? 4 : 3;
-  const horizontalPadding = 20;
-  const totalMargins = numColumns * 10;
-  const itemSize = (width - horizontalPadding - totalMargins) / numColumns;
-
-  const renderItem = ({ item, index }) => {
-    const focused = index === focusedIndex;
-
-    return (
-      <TouchableOpacity
-        focusable={true}
-        activeOpacity={0.85}
-        hasTVPreferredFocus={index === 0}
-        onFocus={() => setFocusedIndex(index)}
-        style={[
-          styles.gridItem,
-          { height: itemSize, width: itemSize },
-          focused && styles.gridItemFocused,
-        ]}
-        onPress={() =>
-          navigation.navigate("Category", {
-            category: item,
-            rawKeys: rawCategories[item] || [],
-          })
-        }
-      >
-        <Text style={[styles.gridText, focused && styles.gridTextFocused]}>
-          {item}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  const animatedShadow = glowAnim.interpolate({
+  const animatedColor = colorAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.15, 0.9],
+    outputRange: ["#666666", "#FFD700"],
   });
+
+  const isTvLike = Platform.isTV;
 
   return (
     <View style={styles.container}>
-      {loading ? (
-        <View style={styles.loaderWrap}>
-          <Text style={styles.mainTitle}>👉🇸 🇮 🇬 🇳 🇦 🇱 👈</Text>
+      <View style={styles.topBar}>
+        <Text style={styles.topTitle}>SIGNAL TV</Text>
+      </View>
 
-          <Animated.View
+      <View style={styles.centerWrap}>
+        {loading ? (
+          <View style={styles.loaderWrap}>
+            <Animated.Text
+              style={[styles.centerSignalText, { color: animatedColor }]}
+            >
+              SIGNAL TV
+            </Animated.Text>
+
+            <Text style={styles.loadingText}>Učitavanje...</Text>
+          </View>
+        ) : orderedCategories.length > 0 ? (
+          <View
             style={[
-              styles.signalBox,
-              {
-                shadowOpacity: animatedShadow,
-                opacity: glowAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.75, 1],
-                }),
-              },
+              styles.categoriesWrap,
+              isTvLike ? styles.categoriesWrapRow : styles.categoriesWrapColumn,
             ]}
           >
-            <View style={styles.lettersRow}>
-              {signalLetters.map((letter, index) => {
-                const active = index < signalStep;
-                return (
+            {orderedCategories.map((item, index) => {
+              const focused = index === focusedIndex;
+
+              return (
+                <TouchableOpacity
+                  key={item}
+                  focusable={true}
+                  hasTVPreferredFocus={index === 0}
+                  onFocus={() => setFocusedIndex(index)}
+                  onPress={() =>
+                    navigation.navigate("Category", {
+                      category: item,
+                      rawKeys: rawCategories[item] || [],
+                    })
+                  }
+                  style={[
+                    styles.categoryBtn,
+                    focused && styles.categoryBtnFocused,
+                  ]}
+                >
                   <Text
-                    key={index}
                     style={[
-                      styles.signalLetter,
-                      active ? styles.signalLetterActive : styles.signalLetterIdle,
+                      styles.categoryText,
+                      focused && styles.categoryTextFocused,
                     ]}
                   >
-                    {letter}
+                    {item}
                   </Text>
-                );
-              })}
-            </View>
-          </Animated.View>
-
-          <Text style={styles.loadingText}>Učitavanje kategorija...</Text>
-        </View>
-      ) : categories.length > 0 ? (
-        <View style={styles.homeContent}>
-          <Text style={styles.screenTitle}>Odaberi kategoriju</Text>
-
-          <FlatList
-            data={categories}
-            renderItem={renderItem}
-            keyExtractor={(item) => item}
-            numColumns={numColumns}
-            extraData={focusedIndex}
-            contentContainerStyle={styles.listContent}
-            columnWrapperStyle={
-              numColumns > 1 ? styles.columnWrapperCentered : undefined
-            }
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-          />
-        </View>
-      ) : (
-        <Text style={styles.emptyText}>Nema dostupnih kategorija.</Text>
-      )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>Nema dostupnih kategorija.</Text>
+        )}
+      </View>
     </View>
   );
 }
@@ -215,119 +180,95 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
 
-  homeContent: {
-    flex: 1,
-    justifyContent: "center",
+  topBar: {
+    paddingTop: 18,
+    paddingBottom: 10,
     alignItems: "center",
-    paddingHorizontal: 10,
+    justifyContent: "center",
   },
 
-  screenTitle: {
+  topTitle: {
     color: "#FFD700",
     fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 28,
   },
 
-  listContent: {
+  centerWrap: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    justifyContent: "center",
-  },
-
-  columnWrapperCentered: {
-    justifyContent: "center",
+    paddingHorizontal: 14,
   },
 
   loaderWrap: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
   },
 
-  mainTitle: {
-    color: "#FFD700",
-    fontSize: 30,
+  centerSignalText: {
+    fontSize: 38,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 26,
-  },
-
-  signalBox: {
-    backgroundColor: "#111",
-    borderWidth: 2,
-    borderColor: "#FFD700",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 18,
-    shadowColor: "#FFD700",
-    shadowRadius: 16,
-    elevation: 10,
-  },
-
-  lettersRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  signalLetter: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginHorizontal: 4,
-  },
-
-  signalLetterIdle: {
-    color: "#555",
-  },
-
-  signalLetterActive: {
-    color: "#FFD700",
+    marginBottom: 14,
   },
 
   loadingText: {
     color: "#fff",
-    marginTop: 10,
-    fontSize: 18,
+    fontSize: 20,
     textAlign: "center",
   },
 
   emptyText: {
     color: "#fff",
     textAlign: "center",
-    marginTop: 20,
-    fontSize: 18,
-  },
-
-  gridItem: {
-    backgroundColor: "#007AFF",
-    margin: 5,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: "transparent",
-    paddingHorizontal: 8,
-  },
-
-  gridItemFocused: {
-    borderColor: "#FFD700",
-    borderWidth: 4,
-    backgroundColor: "#1565C0",
-    transform: [{ scale: 1.08 }],
-  },
-
-  gridText: {
-    color: "#fff",
-    fontWeight: "bold",
-    textAlign: "center",
     fontSize: 20,
   },
 
-  gridTextFocused: {
+  categoriesWrap: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  categoriesWrapRow: {
+    flexDirection: "row",
+  },
+
+  categoriesWrapColumn: {
+    flexDirection: "column",
+  },
+
+  categoryBtn: {
+    backgroundColor: "#007AFF",
+    width: 190,
+    height: 110,
+    marginHorizontal: 10,
+    marginVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+
+  categoryBtnFocused: {
+    borderColor: "#FFD700",
+    borderWidth: 4,
+    backgroundColor: "#1565C0",
+    transform: [{ scale: 1.06 }],
+  },
+
+  categoryText: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+
+  categoryTextFocused: {
     color: "#FFD700",
-    fontSize: 22,
   },
 });
